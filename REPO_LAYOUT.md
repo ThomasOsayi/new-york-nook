@@ -27,6 +27,14 @@ new-york-nook/
     │   ├── globals.css
     │   ├── layout.tsx
     │   ├── page.tsx
+    │   ├── login/
+    │   │   ├── layout.tsx
+    │   │   └── page.tsx
+    │   ├── dashboard/
+    │   │   ├── layout.tsx
+    │   │   ├── page.tsx
+    │   │   └── orders/
+    │   │       └── page.tsx
     │   └── order/
     │       ├── layout.tsx
     │       ├── page.tsx
@@ -59,6 +67,7 @@ new-york-nook/
     │   └── signatures.ts
     │
     ├── lib/
+    │   ├── auth.ts
     │   ├── firebase.ts
     │   └── order.ts
     │
@@ -80,7 +89,7 @@ new-york-nook/
 | **TypeScript** | 5.9.3 |
 | **Tailwind CSS** | ^4 |
 | **Framer Motion** | ^12.33.0 |
-| **Firebase** | Firestore (Firebase JS SDK) |
+| **Firebase** | Firestore + Auth (Firebase JS SDK) |
 | **clsx** | ^2.1.1 |
 | **ESLint** | ^9 (eslint-config-next 16.1.6) |
 
@@ -94,6 +103,9 @@ new-york-nook/
 | **`/order`** | Takeout order flow: menu browser + cart sidebar; add items, set pickup time, special instructions, promo; “Proceed to Checkout” links to `/order/checkout`. |
 | **`/order/checkout`** | Checkout form: customer info (first name, last name, phone, email), order summary, tip (15/18/20/25% or custom), subtotal/tax/packaging/tip/total. Submits order to Firestore via `createOrder`, clears cart, redirects to confirmation. No payment processor (Stripe, etc.) — order is stored only. |
 | **`/order/confirmation`** | Order confirmation: expects query `id` (Firestore doc ID) and `order` (order number). Fetches order via `getOrder(orderId)`; shows order number, status, items, totals, pickup time; “Back to Home” / “Order Again”. Loading and error states. |
+| **`/login`** | Staff login: email + password form; `signIn()` from `auth.ts` (Firebase Auth, whitelist `ALLOWED_EMAILS`). On success redirect to `/dashboard`. Error handling for invalid credentials, unauthorized, too-many-requests. |
+| **`/dashboard`** | Redirects to `/dashboard/orders`. |
+| **`/dashboard/orders`** | Kitchen orders dashboard: real-time Firestore `onSnapshot`; order list with filter tabs (Active, Pending, Preparing, Ready, Completed); stats; order detail panel with status progression and Cancel; `updateDoc` for status changes. No auth middleware. |
 
 ---
 
@@ -105,6 +117,11 @@ new-york-nook/
 - **`order/page.tsx`** — Order page at `/order`: two-column layout (Menubrowser + CartSidebar); responsive grid (sidebar becomes bottom sheet on ≤900px).
 - **`order/checkout/page.tsx`** — Checkout at `/order/checkout`: full checkout form and order summary; calls `createOrder()` with cart + customer + tip; redirects to `/order/confirmation?id=...&order=...`.
 - **`order/confirmation/page.tsx`** — Confirmation at `/order/confirmation`: reads `id` and `order` from query; fetches order with `getOrder(id)`; displays order details or error.
+- **`login/layout.tsx`** — Passthrough layout (no wrapper).
+- **`login/page.tsx`** — Login form; `signIn()`; redirect to `/dashboard` on success.
+- **`dashboard/page.tsx`** — Server redirect to `/dashboard/orders`.
+- **`dashboard/layout.tsx`** — Sidebar nav (Orders, Inventory, Staff, Analytics, Settings); collapsible; logo links to `/`; Sign Out → `signOut()` + redirect to `/login`. Only Orders has a page; others 404.
+- **`dashboard/orders/page.tsx`** — Orders management: real-time list, filters, stats, order detail, status updates via Firestore `updateDoc`.
 - **`globals.css`** — CSS custom properties for brand palette (gold, gold-light, gold-dark, bg-primary, bg-secondary, bg-tertiary, bg-elevated); typography (Playfair Display, DM Sans, Lora); form resets; shared button classes (`.btn-gold-outline`, `.btn-gold-filled`); keyframe animations (`fadeSlideIn`, `fadeUp`, `scrollBounce`, `heroFloat`); scrollbar styling; responsive breakpoints (≈900px).
 
 ---
@@ -122,7 +139,7 @@ new-york-nook/
 | **Catering** | `CateringSection.tsx` | Image grid + copy; services list (Private Dining, Corporate, Wedding, Custom Menus); “Inquire Now” CTA. |
 | **Reservations** | `ReservationSection.tsx` | Form: name, phone, date picker, time slots (5:00–9:30 PM), party size (1–8+); success state with confirmation message; copy (Tue–Sun 5–11 PM, parties 8+ call, smart casual); `useInView` reveal. |
 | **Contact** | `ContactSection.tsx` | Three blocks: Location (7065 Sunset Blvd), Reservations (tel link), Hours (Tue–Sun 5–11 PM); map placeholder with “Open in Maps” link to Google Maps; `useInView` reveal. |
-| **Footer** | `Footer.tsx` | Brand block with logo and tagline; three link columns (Navigate: Menu, Gallery, Reservations, Order Online, Catering; Connect: Instagram, Facebook, Yelp, Google; Info: Private Events, Gift Cards, Press, Careers); copyright; address (7065 Sunset Blvd). |
+| **Footer** | `Footer.tsx` | Brand block with logo and tagline; three link columns (Navigate: Menu, Gallery, Reservations, Order Online, Catering; Connect: Instagram, Facebook, Yelp, Google; Info: Private Events, Gift Cards, Press, **Login**); Login links to `/login`; others placeholder `#`; copyright; address (7065 Sunset Blvd). |
 
 ---
 
@@ -142,8 +159,9 @@ new-york-nook/
 
 | File | Purpose |
 |------|---------|
+| **`auth.ts`** | Firebase Auth: `signIn(email, password)` — whitelist `ALLOWED_EMAILS` (e.g. `nook@gmail.com`); rejects non-whitelisted before/after auth; `signOut()`. Used by login page and dashboard layout. |
 | **`firebase.ts`** | Firebase app init (singleton via `getApps()`); Firestore `db` export. Config from env: `NEXT_PUBLIC_FIREBASE_API_KEY`, `AUTH_DOMAIN`, `PROJECT_ID`, `STORAGE_BUCKET`, `MESSAGING_SENDER_ID`, `APP_ID`, `MEASUREMENT_ID`. Use `.env.local` (gitignored). |
-| **`order.ts`** | Order persistence: `OrderItem`, `OrderData` interfaces; `createOrder(data)` → writes to Firestore `orders` collection, returns `{ id, orderNumber }` (order number format `NYN-MMDD-XXXX`); `getOrder(orderId)` → fetches by doc ID, returns order or null. |
+| **`order.ts`** | Order persistence: `OrderItem`, `OrderData` interfaces; `createOrder(data)` → writes to Firestore `orders` collection, returns `{ id, orderNumber }` (order number format `NYN-MMDD-XXXX`); `getOrder(orderId)` → fetches by doc ID, returns order or null. Dashboard uses Firestore `updateDoc` directly for status changes. |
 
 ---
 
@@ -181,12 +199,14 @@ new-york-nook/
 2. **OrderSection.tsx** — “Start Your Order” is wired to `/order`. No further change needed for navigation.
 3. **CartSidebar.tsx** — “Proceed to Checkout” is wired to `/order/checkout`. Done.
 4. **Checkout** — Orders are stored in Firestore only; no payment processor (Stripe, Square, etc.) integrated. Add payment if required.
-5. **CateringSection.tsx** — Connect “Inquire Now” to form or email.
-6. **ReservationSection.tsx** — Replace mock submit with real backend (OpenTable, Resy, or custom API).
-7. **ContactSection.tsx** — Replace map placeholder with Google Maps or Mapbox embed.
-8. **signatures.ts** — Replace Unsplash placeholders with real food photos.
-9. **gallery.ts** — Replace with real restaurant photography.
-10. **next.config.ts** — Add production image CDN hostname.
+5. **Dashboard auth** — `/dashboard` has no middleware or layout guard; anyone can visit. Add `onAuthStateChanged` redirect to `/login` or Next.js middleware if protection needed.
+6. **Dashboard nav** — Inventory, Staff, Analytics, Settings links 404; only Orders page exists.
+7. **CateringSection.tsx** — Connect “Inquire Now” to form or email.
+8. **ReservationSection.tsx** — Replace mock submit with real backend (OpenTable, Resy, or custom API).
+9. **ContactSection.tsx** — Replace map placeholder with Google Maps or Mapbox embed.
+10. **signatures.ts** — Replace Unsplash placeholders with real food photos.
+11. **gallery.ts** — Replace with real restaurant photography.
+12. **next.config.ts** — Add production image CDN hostname.
 
 ---
 
@@ -198,7 +218,8 @@ new-york-nook/
 4. **Nav links (home)**: “Order” in Navbar uses `router.push("/order")`. Other nav items smooth-scroll on home.
 5. **Hero CTAs**: “Reserve a Table” → scroll to Reserve, “Order Takeout” → scroll to Order section, “View Menu” → scroll to Menu.
 6. **OrderSection**: “Start Your Order →” links to `/order`.
-7. **Footer links**: Placeholder `href="#"`; not wired to smooth scroll or routes.
+7. **Footer links**: Login links to `/login`; others placeholder `#`.
+8. **Login flow**: Footer “Login” or direct `/login` → sign in (whitelisted email) → redirect to `/dashboard` (→ `/dashboard/orders`). Dashboard “Sign Out” → `signOut()` → redirect to `/login`.
 
 ---
 

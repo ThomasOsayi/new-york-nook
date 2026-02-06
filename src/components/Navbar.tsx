@@ -20,6 +20,9 @@ export default function Navbar({ onNav }: NavbarProps) {
     if (label === "Order") {
       router.push("/order");
       setOpen(false);
+    } else if (label === "Catering") {
+      router.push("/catering");
+      setOpen(false);
     } else {
       onNav(label);
       setOpen(false);

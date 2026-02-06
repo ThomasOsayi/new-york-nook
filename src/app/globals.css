@@ -122,3 +122,35 @@ select option { background: rgb(var(--bg-elevated)); color: #fff; }
 @media (min-width: 901px) {
   .nav-hamburger { display: none !important; }
 }
+
+/* ─── Catering page responsive ─────────────────────────
+   Add these rules to the BOTTOM of your globals.css,
+   right after the existing responsive block.
+   ──────────────────────────────────────────────────────── */
+
+/* Mid breakpoint — services go 2×2 instead of 4×1 */
+@media (max-width: 1100px) {
+  .catering-services-grid { grid-template-columns: repeat(2, 1fr) !important; }
+}
+
+/* Extend existing mobile breakpoint */
+@media (max-width: 900px) {
+  /* Services: stack single column */
+  .catering-services-grid { grid-template-columns: 1fr !important; }
+
+  /* Packages: stack single column */
+  .catering-packages-grid { grid-template-columns: 1fr !important; max-width: 480px !important; margin-left: auto !important; margin-right: auto !important; }
+
+  /* Sample menu: stack columns */
+  .catering-menu-grid     { grid-template-columns: 1fr !important; gap: 40px !important; }
+
+  /* Gallery strip: 3 cols on mobile, clip last 2 */
+  .catering-gallery-strip { grid-template-columns: repeat(3, 1fr) !important; height: 220px !important; }
+  .catering-gallery-strip > :nth-child(n+4) { display: none !important; }
+}
+
+/* Small phones */
+@media (max-width: 480px) {
+  .catering-gallery-strip { grid-template-columns: repeat(2, 1fr) !important; height: 180px !important; }
+  .catering-gallery-strip > :nth-child(n+3) { display: none !important; }
+}

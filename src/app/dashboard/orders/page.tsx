@@ -11,6 +11,7 @@ import {
   updateDoc,
   type Timestamp,
 } from "firebase/firestore";
+import "@/lib/auth";
 import type { OrderData } from "@/lib/order";
 
 /* ── Status config ─────────────────────────────────────── */

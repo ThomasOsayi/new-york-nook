@@ -1,5 +1,6 @@
 "use client";
 
+import { signOut } from "@/lib/auth";
 import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -178,15 +179,52 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           })}
         </nav>
 
-        {/* Collapse toggle */}
+        {/* Sign out + Collapse */}
         <div
           style={{
-            padding: "16px 8px",
+            padding: "12px 8px",
             borderTop: "1px solid rgba(255,255,255,0.06)",
             display: "flex",
-            justifyContent: "center",
+            flexDirection: "column",
+            gap: 6,
           }}
         >
+          <button
+            onClick={async () => {
+              await signOut();
+              router.push("/login");
+            }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              padding: collapsed ? "10px 0" : "10px 14px",
+              justifyContent: collapsed ? "center" : "flex-start",
+              borderRadius: 10,
+              border: "none",
+              background: "transparent",
+              cursor: "pointer",
+              transition: "all 0.2s",
+              width: "100%",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(239,68,68,0.08)")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+          >
+            <span style={{ fontSize: 16, lineHeight: 1, flexShrink: 0 }}>↪</span>
+            {!collapsed && (
+              <span
+                style={{
+                  fontSize: 13,
+                  fontWeight: 400,
+                  color: "rgba(255,255,255,0.4)",
+                  letterSpacing: 0.5,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Sign Out
+              </span>
+            )}
+          </button>
           <button
             onClick={() => setCollapsed(!collapsed)}
             style={{

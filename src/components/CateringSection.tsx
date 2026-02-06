@@ -1,6 +1,7 @@
 "use client";
 
 import { useInView } from "@/hooks/useInView";
+import Link from "next/link";
 
 const cateringImages = [
   "https://images.unsplash.com/photo-1530062845289-9109b2c9c868?w=600&q=80",
@@ -70,8 +71,18 @@ export default function CateringSection() {
               ))}
             </div>
 
-            {/* TODO: Link to catering inquiry form or email */}
-            <button className="btn-gold-outline">Inquire Now</button>
+            {/* CTA buttons */}
+            <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+              <Link
+                href="/catering"
+                className="btn-gold-filled"
+                style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 10 }}
+              >
+                View Packages
+                <svg width="14" height="10" viewBox="0 0 16 12" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M0 6h14M9 1l5 5-5 5" /></svg>
+              </Link>
+              <button className="btn-gold-outline">Inquire Now</button>
+            </div>
           </div>
         </div>
       </div>
