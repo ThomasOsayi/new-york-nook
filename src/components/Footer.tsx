@@ -1,7 +1,9 @@
+import Link from "next/link";
+
 const footerColumns = [
   { title: "Navigate", links: ["Menu", "Gallery", "Reservations", "Order Online", "Catering"] },
   { title: "Connect", links: ["Instagram", "Facebook", "Yelp", "Google"] },
-  { title: "Info", links: ["Private Events", "Gift Cards", "Press", "Careers"] },
+  { title: "Info", links: ["Private Events", "Gift Cards", "Press", "Login"] },
 ];
 
 export default function Footer() {
@@ -26,17 +28,32 @@ export default function Footer() {
           {footerColumns.map((col, i) => (
             <div key={i}>
               <h4 style={{ fontFamily: "var(--font-body)", fontSize: 10, letterSpacing: 3, color: "#C9A050", textTransform: "uppercase", marginBottom: 20 }}>{col.title}</h4>
-              {col.links.map((link) => (
-                <a
-                  key={link}
-                  href="#"
-                  style={{ display: "block", fontFamily: "var(--font-body)", fontSize: 12, color: "rgba(255,255,255,0.3)", textDecoration: "none", marginBottom: 12, transition: "color 0.3s" }}
-                  onMouseEnter={(e) => ((e.target as HTMLElement).style.color = "#C9A050")}
-                  onMouseLeave={(e) => ((e.target as HTMLElement).style.color = "rgba(255,255,255,0.3)")}
-                >
-                  {link}
-                </a>
-              ))}
+              {col.links.map((link) => {
+                /* Login gets a real route; everything else stays as placeholder */
+                const isLogin = link === "Login";
+
+                return isLogin ? (
+                  <Link
+                    key={link}
+                    href="/login"
+                    style={{ display: "block", fontFamily: "var(--font-body)", fontSize: 12, color: "rgba(255,255,255,0.3)", textDecoration: "none", marginBottom: 12, transition: "color 0.3s" }}
+                    onMouseEnter={(e) => ((e.target as HTMLElement).style.color = "#C9A050")}
+                    onMouseLeave={(e) => ((e.target as HTMLElement).style.color = "rgba(255,255,255,0.3)")}
+                  >
+                    {link}
+                  </Link>
+                ) : (
+                  <a
+                    key={link}
+                    href="#"
+                    style={{ display: "block", fontFamily: "var(--font-body)", fontSize: 12, color: "rgba(255,255,255,0.3)", textDecoration: "none", marginBottom: 12, transition: "color 0.3s" }}
+                    onMouseEnter={(e) => ((e.target as HTMLElement).style.color = "#C9A050")}
+                    onMouseLeave={(e) => ((e.target as HTMLElement).style.color = "rgba(255,255,255,0.3)")}
+                  >
+                    {link}
+                  </a>
+                );
+              })}
             </div>
           ))}
         </div>

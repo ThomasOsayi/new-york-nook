@@ -1,0 +1,218 @@
+"use client";
+
+import { useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+
+/* ── Sidebar nav items ── */
+const NAV_ITEMS = [
+  { key: "orders",    label: "Orders",    icon: "📋", href: "/dashboard/orders" },
+  { key: "inventory", label: "Inventory", icon: "📦", href: "/dashboard/inventory" },
+  { key: "staff",     label: "Staff",     icon: "👥", href: "/dashboard/staff" },
+  { key: "analytics", label: "Analytics", icon: "📊", href: "/dashboard/analytics" },
+  { key: "settings",  label: "Settings",  icon: "⚙️", href: "/dashboard/settings" },
+] as const;
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const [collapsed, setCollapsed] = useState(false);
+
+  /* Determine active nav item from pathname */
+  const activeKey = NAV_ITEMS.find((n) => pathname.startsWith(n.href))?.key ?? "orders";
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        minHeight: "100vh",
+        background: "rgb(var(--bg-primary))",
+        color: "#fff",
+        fontFamily: "var(--font-body)",
+      }}
+    >
+      {/* ───────────────── Sidebar ───────────────── */}
+      <aside
+        style={{
+          width: collapsed ? 72 : 240,
+          flexShrink: 0,
+          background: "rgba(255,255,255,0.02)",
+          borderRight: "1px solid rgba(255,255,255,0.06)",
+          display: "flex",
+          flexDirection: "column",
+          transition: "width 0.25s cubic-bezier(0.22,1,0.36,1)",
+          overflow: "hidden",
+          position: "sticky",
+          top: 0,
+          height: "100vh",
+        }}
+      >
+        {/* Logo area */}
+        <div
+          style={{
+            padding: collapsed ? "20px 0" : "20px 22px",
+            borderBottom: "1px solid rgba(255,255,255,0.06)",
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            justifyContent: collapsed ? "center" : "flex-start",
+            minHeight: 72,
+            cursor: "pointer",
+          }}
+          onClick={() => router.push("/")}
+        >
+          {/* Diamond logo */}
+          <div
+            style={{
+              width: 30,
+              height: 30,
+              border: "1px solid rgba(183,143,82,0.5)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              transform: "rotate(45deg)",
+              flexShrink: 0,
+            }}
+          >
+            <span
+              style={{
+                transform: "rotate(-45deg)",
+                fontFamily: "var(--font-display)",
+                fontSize: 14,
+                color: "#C9A050",
+                fontWeight: 700,
+              }}
+            >
+              N
+            </span>
+          </div>
+
+          {!collapsed && (
+            <div style={{ overflow: "hidden", whiteSpace: "nowrap" }}>
+              <span
+                style={{
+                  fontFamily: "var(--font-display)",
+                  fontSize: 14,
+                  fontWeight: 700,
+                  color: "#fff",
+                  letterSpacing: 2,
+                  display: "block",
+                  lineHeight: 1,
+                }}
+              >
+                NEW YORK NOOK
+              </span>
+              <span
+                style={{
+                  fontFamily: "var(--font-body)",
+                  fontSize: 9,
+                  fontWeight: 400,
+                  letterSpacing: 2,
+                  color: "rgba(183,143,82,0.5)",
+                  textTransform: "uppercase",
+                }}
+              >
+                Kitchen Dashboard
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Nav items */}
+        <nav style={{ flex: 1, padding: "12px 8px", display: "flex", flexDirection: "column", gap: 2 }}>
+          {NAV_ITEMS.map((item) => {
+            const active = item.key === activeKey;
+            return (
+              <button
+                key={item.key}
+                onClick={() => router.push(item.href)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: collapsed ? "12px 0" : "12px 14px",
+                  justifyContent: collapsed ? "center" : "flex-start",
+                  borderRadius: 10,
+                  border: "none",
+                  background: active ? "rgba(201,160,80,0.1)" : "transparent",
+                  cursor: "pointer",
+                  transition: "all 0.2s",
+                  width: "100%",
+                }}
+                onMouseEnter={(e) => {
+                  if (!active) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)";
+                }}
+                onMouseLeave={(e) => {
+                  if (!active) (e.currentTarget as HTMLElement).style.background = "transparent";
+                }}
+              >
+                <span style={{ fontSize: 18, lineHeight: 1, flexShrink: 0 }}>{item.icon}</span>
+                {!collapsed && (
+                  <span
+                    style={{
+                      fontSize: 13,
+                      fontWeight: active ? 600 : 400,
+                      color: active ? "#C9A050" : "rgba(255,255,255,0.5)",
+                      letterSpacing: 0.5,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                    }}
+                  >
+                    {item.label}
+                  </span>
+                )}
+                {/* Active indicator */}
+                {active && !collapsed && (
+                  <div
+                    style={{
+                      marginLeft: "auto",
+                      width: 5,
+                      height: 5,
+                      borderRadius: "50%",
+                      background: "#C9A050",
+                      flexShrink: 0,
+                    }}
+                  />
+                )}
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* Collapse toggle */}
+        <div
+          style={{
+            padding: "16px 8px",
+            borderTop: "1px solid rgba(255,255,255,0.06)",
+            display: "flex",
+            justifyContent: "center",
+          }}
+        >
+          <button
+            onClick={() => setCollapsed(!collapsed)}
+            style={{
+              background: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.06)",
+              borderRadius: 8,
+              padding: "8px 12px",
+              cursor: "pointer",
+              color: "rgba(255,255,255,0.35)",
+              fontSize: 14,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: collapsed ? 40 : "100%",
+              transition: "all 0.2s",
+            }}
+          >
+            {collapsed ? "→" : "← Collapse"}
+          </button>
+        </div>
+      </aside>
+
+      {/* ───────────────── Main content ───────────────── */}
+      <main style={{ flex: 1, minWidth: 0, overflow: "auto" }}>
+        {children}
+      </main>
+    </div>
+  );
+}

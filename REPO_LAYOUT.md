@@ -28,7 +28,12 @@ new-york-nook/
     │   ├── layout.tsx
     │   ├── page.tsx
     │   └── order/
-    │       └── page.tsx
+    │       ├── layout.tsx
+    │       ├── page.tsx
+    │       ├── checkout/
+    │       │   └── page.tsx
+    │       └── confirmation/
+    │           └── page.tsx
     │
     ├── components/
     │   ├── CateringSection.tsx
@@ -53,6 +58,10 @@ new-york-nook/
     │   ├── menu.ts
     │   └── signatures.ts
     │
+    ├── lib/
+    │   ├── firebase.ts
+    │   └── order.ts
+    │
     └── hooks/
         ├── useInView.ts
         └── useScrollY.ts
@@ -71,6 +80,7 @@ new-york-nook/
 | **TypeScript** | 5.9.3 |
 | **Tailwind CSS** | ^4 |
 | **Framer Motion** | ^12.33.0 |
+| **Firebase** | Firestore (Firebase JS SDK) |
 | **clsx** | ^2.1.1 |
 | **ESLint** | ^9 (eslint-config-next 16.1.6) |
 
@@ -81,7 +91,9 @@ new-york-nook/
 | Route | Description |
 |-------|-------------|
 | **`/`** | Home: single-page site with all sections (Hero, Signature Dishes, Menu, Gallery, Order, Catering, Reservations, Contact, Footer). |
-| **`/order`** | Takeout order flow: menu browser + cart sidebar; add items, set pickup time, special instructions, promo; checkout button (payment not wired). |
+| **`/order`** | Takeout order flow: menu browser + cart sidebar; add items, set pickup time, special instructions, promo; “Proceed to Checkout” links to `/order/checkout`. |
+| **`/order/checkout`** | Checkout form: customer info (first name, last name, phone, email), order summary, tip (15/18/20/25% or custom), subtotal/tax/packaging/tip/total. Submits order to Firestore via `createOrder`, clears cart, redirects to confirmation. No payment processor (Stripe, etc.) — order is stored only. |
+| **`/order/confirmation`** | Order confirmation: expects query `id` (Firestore doc ID) and `order` (order number). Fetches order via `getOrder(orderId)`; shows order number, status, items, totals, pickup time; “Back to Home” / “Order Again”. Loading and error states. |
 
 ---
 
@@ -89,7 +101,10 @@ new-york-nook/
 
 - **`layout.tsx`** — Root layout with metadata (title, description, OpenGraph). Brand: *New York Nook \| Fine Russian Cuisine in Hollywood*.
 - **`page.tsx`** — Home page: single-page layout with section refs and smooth scroll navigation between sections (Hero → SigDishes → Menu → Gallery → Order → Catering → Reserve → Contact → Footer).
-- **`order/page.tsx`** — Order page at `/order`: wrapped in `CartProvider`; two-column layout (Menubrowser + CartSidebar); responsive grid (sidebar becomes bottom sheet on ≤900px).
+- **`order/layout.tsx`** — Order layout: wraps all `/order/*` routes in `CartProvider` so cart state is shared across order, checkout, and confirmation.
+- **`order/page.tsx`** — Order page at `/order`: two-column layout (Menubrowser + CartSidebar); responsive grid (sidebar becomes bottom sheet on ≤900px).
+- **`order/checkout/page.tsx`** — Checkout at `/order/checkout`: full checkout form and order summary; calls `createOrder()` with cart + customer + tip; redirects to `/order/confirmation?id=...&order=...`.
+- **`order/confirmation/page.tsx`** — Confirmation at `/order/confirmation`: reads `id` and `order` from query; fetches order with `getOrder(id)`; displays order details or error.
 - **`globals.css`** — CSS custom properties for brand palette (gold, gold-light, gold-dark, bg-primary, bg-secondary, bg-tertiary, bg-elevated); typography (Playfair Display, DM Sans, Lora); form resets; shared button classes (`.btn-gold-outline`, `.btn-gold-filled`); keyframe animations (`fadeSlideIn`, `fadeUp`, `scrollBounce`, `heroFloat`); scrollbar styling; responsive breakpoints (≈900px).
 
 ---
@@ -119,7 +134,16 @@ new-york-nook/
 | **Order header** | `OrderHeader.tsx` | Sticky header with scroll-based background/blur; logo + “Back to Menu” link to `/`; pickup badge “25–35 min”; “View Order” cart button with item count. Uses `useScrollY`, `useCart`. |
 | **Order hero** | `OrderHero.tsx` | Hero strip with background image, gradient overlay; label “Takeout & Pickup”, title “Build Your Order”, short copy; star rating + “4.9 · 320+ reviews · Open until 11 PM”; `useInView` reveal. |
 | **Menu browser** | `Menubrowser.tsx` | Category tabs from `menu.ts` (Cold Appetizers, Salads, Soups, Hot Appetizers, Main Course, Desserts, Drinks); scrollable menu grid; item cards with image, name, description, price, tags (popular, new, spicy, gf, v); add-to-cart / inline qty stepper; toast on add. Uses `useCart`, `categories`, `menuData`. |
-| **Cart sidebar** | `CartSidebar.tsx` | Sticky sidebar (desktop) / bottom sheet (mobile ≤900px). “Your Order” header + item count; pickup time options (ASAP 25–35 min, Today 6:30 PM, 7:00 PM); scrollable cart list with qty +/- and remove; promo code input + Apply; “Add special instructions” expandable textarea; subtotal, tax 9.5%, packaging $2, total; “Proceed to Checkout” (not wired to payment). Empty state “Add items to get started”. |
+| **Cart sidebar** | `CartSidebar.tsx` | Sticky sidebar (desktop) / bottom sheet (mobile ≤900px). “Your Order” header + item count; pickup time options (ASAP 25–35 min, Today 6:30 PM, 7:00 PM); scrollable cart list with qty +/- and remove; promo code input + Apply; “Add special instructions” expandable textarea; subtotal, tax 9.5%, packaging $2, total; “Proceed to Checkout” links to `/order/checkout`. Empty state “Add items to get started”. |
+
+---
+
+### Lib / Backend
+
+| File | Purpose |
+|------|---------|
+| **`firebase.ts`** | Firebase app init (singleton via `getApps()`); Firestore `db` export. Config from env: `NEXT_PUBLIC_FIREBASE_API_KEY`, `AUTH_DOMAIN`, `PROJECT_ID`, `STORAGE_BUCKET`, `MESSAGING_SENDER_ID`, `APP_ID`, `MEASUREMENT_ID`. Use `.env.local` (gitignored). |
+| **`order.ts`** | Order persistence: `OrderItem`, `OrderData` interfaces; `createOrder(data)` → writes to Firestore `orders` collection, returns `{ id, orderNumber }` (order number format `NYN-MMDD-XXXX`); `getOrder(orderId)` → fetches by doc ID, returns order or null. |
 
 ---
 
@@ -155,24 +179,26 @@ new-york-nook/
 
 1. **layout.tsx** — Add OG image URL; add `metadataBase` for real domain.
 2. **OrderSection.tsx** — “Start Your Order” is wired to `/order`. No further change needed for navigation.
-3. **CartSidebar.tsx** — Wire “Proceed to Checkout” to payment/ordering platform (Toast, Square, ChowNow, etc.).
-4. **CateringSection.tsx** — Connect “Inquire Now” to form or email.
-5. **ReservationSection.tsx** — Replace mock submit with real backend (OpenTable, Resy, or custom API).
-6. **ContactSection.tsx** — Replace map placeholder with Google Maps or Mapbox embed.
-7. **signatures.ts** — Replace Unsplash placeholders with real food photos.
-8. **gallery.ts** — Replace with real restaurant photography.
-9. **next.config.ts** — Add production image CDN hostname.
+3. **CartSidebar.tsx** — “Proceed to Checkout” is wired to `/order/checkout`. Done.
+4. **Checkout** — Orders are stored in Firestore only; no payment processor (Stripe, Square, etc.) integrated. Add payment if required.
+5. **CateringSection.tsx** — Connect “Inquire Now” to form or email.
+6. **ReservationSection.tsx** — Replace mock submit with real backend (OpenTable, Resy, or custom API).
+7. **ContactSection.tsx** — Replace map placeholder with Google Maps or Mapbox embed.
+8. **signatures.ts** — Replace Unsplash placeholders with real food photos.
+9. **gallery.ts** — Replace with real restaurant photography.
+10. **next.config.ts** — Add production image CDN hostname.
 
 ---
 
 ### Navigation Flow
 
 1. **Home page** (`/`): Hero (Home) → SigDishes → Menu → Gallery → Order → Catering → Reserve → Contact → Footer.
-2. **Order page** (`/order`): Dedicated takeout flow; header “Back to Menu” and logo link to `/`.
-3. **Nav links (home)**: `SECTIONS = [Home, Menu, Gallery, Reserve, Order, Catering, Contact]`. “Order” in Navbar uses `router.push("/order")` (goes to order page). Other nav items smooth-scroll on home via `scrollIntoView({ behavior: "smooth" })`.
-4. **Hero CTAs**: “Reserve a Table” → scroll to Reserve, “Order Takeout” → scroll to Order section, “View Menu” → scroll to Menu.
-5. **OrderSection**: “Start Your Order →” is a `<Link href="/order">` to the order page.
-6. **Footer links**: Placeholder `href="#"` (Navigate, Connect, Info columns); not wired to smooth scroll or routes.
+2. **Order flow**: `/order` (browse + cart) → CartSidebar “Proceed to Checkout” → `/order/checkout` (form + place order) → `createOrder()` → redirect to `/order/confirmation?id=<docId>&order=<orderNumber>` → confirmation page fetches order with `getOrder(id)`.
+3. **Order layout**: All `/order/*` routes share `CartProvider` (order layout).
+4. **Nav links (home)**: “Order” in Navbar uses `router.push("/order")`. Other nav items smooth-scroll on home.
+5. **Hero CTAs**: “Reserve a Table” → scroll to Reserve, “Order Takeout” → scroll to Order section, “View Menu” → scroll to Menu.
+6. **OrderSection**: “Start Your Order →” links to `/order`.
+7. **Footer links**: Placeholder `href="#"`; not wired to smooth scroll or routes.
 
 ---
 
@@ -183,7 +209,7 @@ new-york-nook/
 
 ---
 
-### Config Files
+### Config Files & Environment
 
 | File | Purpose |
 |------|---------|
@@ -192,6 +218,7 @@ new-york-nook/
 | `tsconfig.json` | TypeScript paths (`@/` → `src/`). |
 | `eslint.config.mjs` | ESLint flat config. |
 | `postcss.config.mjs` | PostCSS + Tailwind. |
+| `.env.local` | Firebase env vars (gitignored): `NEXT_PUBLIC_FIREBASE_API_KEY`, `AUTH_DOMAIN`, `PROJECT_ID`, `STORAGE_BUCKET`, `MESSAGING_SENDER_ID`, `APP_ID`, `MEASUREMENT_ID`. |
 
 ---
 
