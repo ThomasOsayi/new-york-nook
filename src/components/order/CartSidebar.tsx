@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useCart, type CartItem } from "@/components/order/Cartcontext";
 import { categories } from "@/data/menu";
 
@@ -510,10 +511,12 @@ export default function CartSidebar() {
               </span>
             </div>
 
-            {/* Checkout */}
-            <button
+            {/* Checkout — now a Link */}
+            <Link
+              href="/order/checkout"
               className="btn-gold-filled"
               style={{
+                display: "block",
                 width: "100%",
                 padding: 18,
                 marginTop: 16,
@@ -522,6 +525,9 @@ export default function CartSidebar() {
                 letterSpacing: 2.5,
                 fontWeight: 800,
                 boxShadow: "0 6px 24px rgba(201,160,80,0.25)",
+                textAlign: "center",
+                textDecoration: "none",
+                transition: "all 0.3s",
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.transform = "translateY(-2px)";
@@ -533,7 +539,7 @@ export default function CartSidebar() {
               }}
             >
               Proceed to Checkout
-            </button>
+            </Link>
           </>
         ) : (
           <button
