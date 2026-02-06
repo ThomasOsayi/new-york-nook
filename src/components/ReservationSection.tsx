@@ -72,7 +72,7 @@ export default function ReservationSection() {
             ))}
           </div>
           <div style={{ marginTop: 40, overflow: "hidden", border: "1px solid rgba(183,143,82,0.12)", maxWidth: 300 }}>
-            <img src="https://images.unsplash.com/photo-1550966871-3ed3cdb51f3a?w=500&q=80" alt="Wine" style={{ width: "100%", height: 180, objectFit: "cover", filter: "brightness(0.7)" }} />
+            <img src="https://images.unsplash.com/photo-1553361371-9b22f78e8b1d?w=500&q=80" alt="Wine" style={{ width: "100%", height: 180, objectFit: "cover", filter: "brightness(0.7)" }} />
           </div>
         </div>
 
