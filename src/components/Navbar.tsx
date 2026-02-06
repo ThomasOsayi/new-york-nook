@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useScrollY } from "@/hooks/useScrollY";
 
 const NAV_LINKS = ["Home", "Menu", "Gallery", "Reserve", "Order", "Catering", "Contact"] as const;
@@ -10,9 +11,20 @@ interface NavbarProps {
 }
 
 export default function Navbar({ onNav }: NavbarProps) {
+  const router = useRouter();
   const scrollY = useScrollY();
   const scrolled = scrollY > 60;
   const [open, setOpen] = useState(false);
+
+  const handleNav = (label: string) => {
+    if (label === "Order") {
+      router.push("/order");
+      setOpen(false);
+    } else {
+      onNav(label);
+      setOpen(false);
+    }
+  };
 
   return (
     <nav
@@ -101,7 +113,7 @@ export default function Navbar({ onNav }: NavbarProps) {
           {NAV_LINKS.map((label) => (
             <button
               key={label}
-              onClick={() => onNav(label)}
+              onClick={() => handleNav(label)}
               style={{
                 background: "none",
                 border: "none",
@@ -190,10 +202,7 @@ export default function Navbar({ onNav }: NavbarProps) {
           {NAV_LINKS.map((label, i) => (
             <button
               key={label}
-              onClick={() => {
-                onNav(label);
-                setOpen(false);
-              }}
+              onClick={() => handleNav(label)}
               style={{
                 background: "none",
                 border: "none",

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useInView } from "@/hooks/useInView";
 
 export default function OrderHero() {
@@ -17,14 +18,13 @@ export default function OrderHero() {
       }}
     >
       {/* Background image */}
-      <img
+      <Image
         src="https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1600&q=80"
         alt="Restaurant ambiance"
+        fill
+        sizes="100vw"
+        priority
         style={{
-          position: "absolute",
-          inset: 0,
-          width: "100%",
-          height: "100%",
           objectFit: "cover",
           filter: "brightness(0.3) saturate(1.2)",
         }}

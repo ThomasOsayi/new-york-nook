@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useCart, type CartItem } from "@/components/order/Cartcontext";
 import { categories } from "@/data/menu";
 
@@ -231,12 +232,15 @@ export default function CartSidebar() {
                   overflow: "hidden",
                   border: "1px solid rgba(255,255,255,0.06)",
                   flexShrink: 0,
+                  position: "relative",
                 }}
               >
-                <img
+                <Image
                   src={item.img}
                   alt={item.name}
-                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  width={50}
+                  height={50}
+                  style={{ objectFit: "cover" }}
                 />
               </div>
 

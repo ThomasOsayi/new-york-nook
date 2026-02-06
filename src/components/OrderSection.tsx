@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useInView } from "@/hooks/useInView";
 
 const steps = [
@@ -85,11 +86,10 @@ export default function OrderSection() {
           ))}
         </div>
 
-        {/* TODO: Link to real ordering platform (e.g. Toast, Square, ChowNow) */}
         <div style={{ textAlign: "center", marginTop: 48 }}>
-          <button className="btn-gold-filled" style={{ fontSize: 12, padding: "18px 56px" }}>
+          <Link href="/order" className="btn-gold-filled" style={{ fontSize: 12, padding: "18px 56px", textDecoration: "none", display: "inline-block" }}>
             Start Your Order →
-          </button>
+          </Link>
         </div>
       </div>
     </section>

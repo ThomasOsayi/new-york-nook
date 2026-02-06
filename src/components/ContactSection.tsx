@@ -44,36 +44,86 @@ export default function ContactSection() {
           ))}
         </div>
 
-        {/* TODO: Replace with a real Google Maps embed or Mapbox GL component */}
-        <div style={{ position: "relative", height: 350, overflow: "hidden", border: "1px solid rgba(255,255,255,0.06)" }}>
-          <img
-            src="https://images.unsplash.com/photo-1569336415962-a4bd9f69cd83?w=1400&q=80"
-            alt="Hollywood"
-            style={{ width: "100%", height: "100%", objectFit: "cover", filter: "brightness(0.25) saturate(0.8)" }}
+        {/* Interactive Google Map */}
+        <div
+          style={{
+            position: "relative",
+            height: 400,
+            overflow: "hidden",
+            border: "1px solid rgba(255,255,255,0.06)",
+          }}
+        >
+          <iframe
+            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3303.8!2d-118.3475!3d34.0978!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x80c2bed5c765c5e7%3A0x3f61a2b2b0e9a0e2!2s7065%20Sunset%20Blvd%2C%20Los%20Angeles%2C%20CA%2090028!5e0!3m2!1sen!2sus!4v1700000000000!5m2!1sen!2sus"
+            width="100%"
+            height="100%"
+            style={{
+              border: 0,
+              filter: "invert(0.9) hue-rotate(180deg) brightness(0.7) contrast(1.1) saturate(0.3)",
+            }}
+            allowFullScreen
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+            title="New York Nook Location"
           />
-          <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-            <div style={{ width: 16, height: 16, background: "#C9A050", borderRadius: "50%", marginBottom: 12, boxShadow: "0 0 24px rgba(201,160,80,0.4)" }} />
-            <span style={{ fontFamily: "var(--font-display)", fontSize: 20, color: "#fff", marginBottom: 4 }}>New York Nook</span>
-            <span style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "rgba(255,255,255,0.4)" }}>7065 Sunset Blvd, Hollywood</span>
+
+          {/* Overlay label at bottom */}
+          <div
+            style={{
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              right: 0,
+              padding: "20px 24px",
+              background: "linear-gradient(180deg, transparent 0%, rgba(8,6,3,0.9) 100%)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              pointerEvents: "none",
+            }}
+          >
+            <div>
+              <span
+                style={{
+                  fontFamily: "var(--font-display)",
+                  fontSize: 16,
+                  color: "#fff",
+                  display: "block",
+                  marginBottom: 2,
+                }}
+              >
+                New York Nook
+              </span>
+              <span
+                style={{
+                  fontFamily: "var(--font-body)",
+                  fontSize: 11,
+                  color: "rgba(255,255,255,0.35)",
+                }}
+              >
+                7065 Sunset Blvd, Hollywood, CA 90028
+              </span>
+            </div>
             <a
               href="https://maps.google.com/?q=7065+Sunset+Blvd+Hollywood+CA+90028"
               target="_blank"
               rel="noopener noreferrer"
               style={{
-                marginTop: 20,
                 fontFamily: "var(--font-body)",
                 fontSize: 10,
                 letterSpacing: 2,
                 textTransform: "uppercase",
-                background: "rgba(8,6,3,0.7)",
+                background: "rgba(8,6,3,0.8)",
                 border: "1px solid rgba(183,143,82,0.3)",
                 color: "#C9A050",
                 padding: "10px 24px",
                 cursor: "pointer",
                 textDecoration: "none",
+                pointerEvents: "auto",
+                transition: "all 0.3s",
               }}
             >
-              Open in Maps
+              Get Directions
             </a>
           </div>
         </div>

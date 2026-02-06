@@ -9,7 +9,7 @@ import CartSidebar from "@/components/order/CartSidebar";
 export default function OrderPage() {
   return (
     <CartProvider>
-      <div style={{ background: "rgb(var(--bg-primary))", minHeight: "100vh" }}>
+      <div style={{ background: "rgb(var(--bg-primary))", minHeight: "100vh", overflow: "hidden" }}>
         <OrderHeader />
         <OrderHero />
 
@@ -18,7 +18,9 @@ export default function OrderPage() {
           className="order-layout"
           style={{
             display: "grid",
-            gridTemplateColumns: "1fr 420px",
+            gridTemplateColumns: "minmax(0, 1fr) 380px",
+            maxWidth: "100vw",
+            overflow: "hidden",
             position: "relative",
           }}
         >

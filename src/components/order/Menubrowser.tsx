@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect } from "react";
+import Image from "next/image";
 import { categories, menuData } from "@/data/menu";
 import { useCart, type CartItem } from "@/components/order/Cartcontext";
 import type { MenuItem } from "@/data/menu";
@@ -148,12 +149,12 @@ function MenuItemCard({
     >
       {/* Image */}
       <div style={{ width: 130, height: 130, overflow: "hidden", position: "relative" }}>
-        <img
+        <Image
           src={item.img}
           alt={item.name}
+          width={130}
+          height={130}
           style={{
-            width: "100%",
-            height: "100%",
             objectFit: "cover",
             transition: "transform 0.6s cubic-bezier(0.16,1,0.3,1), filter 0.4s",
             filter: hovered ? "brightness(0.95) saturate(1.2)" : "brightness(0.8) saturate(1.1)",
@@ -367,9 +368,10 @@ function CategorySection({
             overflow: "hidden",
             flexShrink: 0,
             border: "1px solid rgba(255,255,255,0.06)",
+            position: "relative",
           }}
         >
-          <img src={img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          <Image src={img} alt="" width={48} height={48} style={{ objectFit: "cover" }} />
         </div>
         <div style={{ flex: 1 }}>
           <h2
