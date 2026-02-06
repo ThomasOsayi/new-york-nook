@@ -21,7 +21,9 @@ export default function LoginPage() {
       router.push("/dashboard");
     } catch (err: unknown) {
       const code = (err as { code?: string })?.code;
-      if (code === "auth/invalid-credential" || code === "auth/wrong-password" || code === "auth/user-not-found") {
+      if (code === "auth/unauthorized") {
+        setError("This account is not authorized to access the dashboard.");
+      } else if (code === "auth/invalid-credential" || code === "auth/wrong-password" || code === "auth/user-not-found") {
         setError("Invalid email or password.");
       } else if (code === "auth/too-many-requests") {
         setError("Too many attempts. Please try again later.");
