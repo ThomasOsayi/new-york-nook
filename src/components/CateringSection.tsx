@@ -6,7 +6,7 @@ const cateringImages = [
   "https://images.unsplash.com/photo-1530062845289-9109b2c9c868?w=600&q=80",
   "https://images.unsplash.com/photo-1555244162-803834f70033?w=600&q=80",
   "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=600&q=80",
-  "https://images.unsplash.com/photo-1550966871-3ed3cdb51f3a?w=600&q=80",
+  "https://images.unsplash.com/photo-1553361371-9b22f78e8b1d?w=600&q=80",
 ];
 
 const services = [
