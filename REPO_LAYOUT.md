@@ -8,6 +8,7 @@ new-york-nook/
 ├── eslint.config.mjs
 ├── next.config.ts
 ├── package.json
+├── package-lock.json
 ├── postcss.config.mjs
 ├── README.md
 ├── REPO_LAYOUT.md          ← this file
@@ -59,10 +60,11 @@ new-york-nook/
 |------|---------|
 | **Next.js** | 16.1.6 (App Router) |
 | **React** | 19.2.3 |
-| **TypeScript** | ^5 |
+| **TypeScript** | 5.9.3 |
 | **Tailwind CSS** | ^4 |
 | **Framer Motion** | ^12.33.0 |
 | **clsx** | ^2.1.1 |
+| **ESLint** | ^9 (eslint-config-next 16.1.6) |
 
 ---
 
@@ -70,7 +72,7 @@ new-york-nook/
 
 - **`layout.tsx`** — Root layout with metadata (title, description, OpenGraph). Brand: *New York Nook \| Fine Russian Cuisine in Hollywood*.
 - **`page.tsx`** — Single-page layout with section refs and smooth scroll navigation between sections.
-- **`globals.css`** — Brand palette (gold, dark backgrounds), typography (Playfair Display, DM Sans, Lora), animations (`fadeSlideIn`, `fadeUp`, `scrollBounce`, `heroFloat`), scrollbar styling, shared button classes, and responsive breakpoints (≈900px).
+- **`globals.css`** — CSS custom properties for brand palette (gold, gold-light, gold-dark, bg-primary, bg-secondary, bg-tertiary, bg-elevated); typography (Playfair Display, DM Sans, Lora); form resets; shared button classes (`.btn-gold-outline`, `.btn-gold-filled`); keyframe animations (`fadeSlideIn`, `fadeUp`, `scrollBounce`, `heroFloat`); scrollbar styling; responsive breakpoints (≈900px).
 
 ---
 
@@ -78,16 +80,16 @@ new-york-nook/
 
 | Section | File | What It Does |
 |---------|------|--------------|
-| **Navbar** | `Navbar.tsx` | Fixed nav; scroll-based background/blur; logo; desktop links + mobile hamburger; smooth scroll to sections. |
+| **Navbar** | `Navbar.tsx` | Fixed nav; scroll-based background/blur/border; logo (N diamond + “NEW YORK NOOK”); desktop links + mobile hamburger with full-screen overlay; smooth scroll to sections; `useScrollY` for scroll state. |
 | **Hero** | `Hero.tsx` | Full-height hero with parallax background, animated tagline/title/subtitle, CTAs (Reserve, Order, Menu), floating accent images (desktop), scroll indicator. |
 | **Signature Dishes** | `SigDishes.tsx` | Two-column section with auto-rotating carousel of signature dishes; prev/next buttons and indicator dots; `useInView` reveal. |
-| **Menu** | `MenuSection.tsx` | Category tabs with images (Cold Appetizers, Salads, Soups, etc.); sticky image + scrolling menu items; prices. |
+| **Menu** | `MenuSection.tsx` | Category tabs with images (Cold Appetizers, Salads, Soups, etc.); sticky image + scrolling menu items; prices (or “MP” for market price); `fadeSlideIn` on items. |
 | **Gallery** | `GallerySection.tsx` | Masonry-style grid with variable row spans; hover overlays; lightbox with prev/next and close; `useInView` reveal. |
-| **Order** | `OrderSection.tsx` | Three-step explainer (Browse → Customize → Pickup); CTA for takeout. |
+| **Order** | `OrderSection.tsx` | Three-step explainer (Browse & Select → Customize & Pay → Pickup & Enjoy); full-width background image; `useInView` reveal; CTA button. |
 | **Catering** | `CateringSection.tsx` | Image grid + copy; services list (Private Dining, Corporate, Wedding, Custom Menus); “Inquire Now” CTA. |
-| **Reservations** | `ReservationSection.tsx` | Form (name, phone, date, time, party size); success state; copy about hours and dress code. |
-| **Contact** | `ContactSection.tsx` | Location, phone, hours blocks; map placeholder with “Open in Maps” link. |
-| **Footer** | `Footer.tsx` | Brand, navigation links (Navigate, Connect, Info), copyright, address. |
+| **Reservations** | `ReservationSection.tsx` | Form: name, phone, date picker, time slots (5:00–9:30 PM), party size (1–8+); success state with confirmation message; copy (Tue–Sun 5–11 PM, parties 8+ call, smart casual); `useInView` reveal. |
+| **Contact** | `ContactSection.tsx` | Three blocks: Location (7065 Sunset Blvd), Reservations (tel link), Hours (Tue–Sun 5–11 PM); map placeholder with “Open in Maps” link to Google Maps; `useInView` reveal. |
+| **Footer** | `Footer.tsx` | Brand block with logo and tagline; three link columns (Navigate: Menu, Gallery, Reservations, Order Online, Catering; Connect: Instagram, Facebook, Yelp, Google; Info: Private Events, Gift Cards, Press, Careers); copyright; address (7065 Sunset Blvd). |
 
 ---
 
@@ -95,9 +97,9 @@ new-york-nook/
 
 | File | Contents |
 |------|----------|
-| **`menu.ts`** | Menu categories + items (Cold Appetizers, Salads, Soups, Hot Appetizers, Mains, Desserts, Drinks). 50+ items with names, descriptions, prices. |
-| **`signatures.ts`** | 6 signature dishes with name, description, image URL. |
-| **`gallery.ts`** | 12 gallery images with labels and row-span values for masonry layout. |
+| **`menu.ts`** | 7 categories: Cold Appetizers (12), Salads (5), Soups (4), Hot Appetizers (10), Mains (7), Desserts (5), Drinks (3). 46 items with name, description, price. MenuItem & MenuCategory interfaces. |
+| **`signatures.ts`** | 6 signature dishes (Beef Stroganoff, Lobster Bisque, Ribeye Steak, Crepes with Caviar, Rack of Lamb, Grilled Octopus) with name, description, image URL. SignatureDish interface. |
+| **`gallery.ts`** | 12 gallery images with labels; `gallerySpans` array for masonry row-span (2,1,1,2,1,2,1,1,2,1,1,2). GalleryImage interface. |
 
 ---
 
@@ -105,7 +107,7 @@ new-york-nook/
 
 | Hook | Purpose |
 |------|---------|
-| **`useInView`** | IntersectionObserver-based; returns `[ref, visible]` for scroll-triggered reveals. |
+| **`useInView`** | IntersectionObserver-based; returns `[ref, visible]` for scroll-triggered reveals. Optional threshold (default 0.12). One-shot: once visible, stays true. |
 | **`useScrollY`** | Tracks `window.scrollY` for parallax and nav state. |
 
 ---
@@ -134,16 +136,29 @@ new-york-nook/
 
 ### Navigation Flow
 
-1. **Sections**: Home → SigDishes → Menu → Gallery → Order → Catering → Reserve → Contact.
-2. **Nav links**: Smooth scroll to each section via refs.
+1. **Page order**: Hero (Home) → SigDishes → Menu → Gallery → Order → Catering → Reserve → Contact → Footer.
+2. **Nav links**: `SECTIONS = [Home, Menu, Gallery, Reserve, Order, Catering, Contact]`. SigDishes has no nav link. Smooth scroll via `scrollIntoView({ behavior: "smooth" })`.
 3. **Hero CTAs**: “Reserve a Table” → Reserve, “Order Takeout” → Order, “View Menu” → Menu.
+4. **Footer links**: Placeholder `href="#"` (Navigate, Connect, Info columns); not wired to smooth scroll.
 
 ---
 
 ### Image Sources
 
-- **Current**: Unsplash (restaurant/food) for hero, gallery, menu, catering, etc.
-- **Config**: `next.config.ts` allows `images.unsplash.com`; TODOs for real CDN.
+- **Current**: Unsplash (restaurant/food) for hero, gallery, menu, catering, order, reservations.
+- **Config**: `next.config.ts` (CommonJS) allows `images.unsplash.com`; TODOs for real CDN.
+
+---
+
+### Config Files
+
+| File | Purpose |
+|------|---------|
+| `next.config.ts` | Image remote patterns (Unsplash). |
+| `tailwind.config.ts` | Content paths, theme extend (colors, fonts). |
+| `tsconfig.json` | TypeScript paths (`@/` → `src/`). |
+| `eslint.config.mjs` | ESLint flat config. |
+| `postcss.config.mjs` | PostCSS + Tailwind. |
 
 ---
 
