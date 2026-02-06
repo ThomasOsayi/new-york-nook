@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { useCart, type CartItem } from "@/components/order/Cartcontext";
 import { useScrollY } from "@/hooks/useScrollY";
 import { categories } from "@/data/menu";
+import { createOrder } from "@/lib/order";
 
 /* ── Category label lookup ── */
 const catLabelMap: Record<string, string> = {};
@@ -18,14 +20,27 @@ const PACKAGING_FEE = 2;
    Checkout Page
    ══════════════════════════════════════════ */
 export default function CheckoutPage() {
-  const { items } = useCart();
+  const router = useRouter();
+  const { items, clearCart } = useCart();
   const scrollY = useScrollY();
   const scrolled = scrollY > 10;
 
+  /* ── Form state ── */
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+
+  /* ── Tip state ── */
   const [tipIndex, setTipIndex] = useState(1); // default 18%
   const [showCustomTip, setShowCustomTip] = useState(false);
   const [customTipValue, setCustomTipValue] = useState("");
 
+  /* ── Submit state ── */
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  /* ── Calculations ── */
   const subtotal = items.reduce((sum: number, i: CartItem) => sum + i.price * i.qty, 0);
   const tax = subtotal * TAX_RATE;
   const totalItems = items.reduce((sum: number, i: CartItem) => sum + i.qty, 0);
@@ -42,6 +57,48 @@ export default function CheckoutPage() {
     : tipOptions[tipIndex]?.amt ?? 0;
 
   const total = subtotal + tax + (items.length > 0 ? PACKAGING_FEE : 0) + tipAmount;
+
+  /* ── Submit handler ── */
+  const handlePlaceOrder = async () => {
+    setError("");
+
+    if (items.length === 0) { setError("Your cart is empty."); return; }
+    if (!firstName.trim()) { setError("First name is required."); return; }
+    if (!lastName.trim()) { setError("Last name is required."); return; }
+    if (!phone.trim()) { setError("Phone number is required."); return; }
+    if (!email.trim() || !email.includes("@")) { setError("A valid email is required."); return; }
+
+    setLoading(true);
+
+    try {
+      const { id, orderNumber } = await createOrder({
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        phone: phone.trim(),
+        email: email.trim(),
+        items: items.map((i) => ({
+          name: i.name,
+          price: i.price,
+          qty: i.qty,
+          img: i.img,
+          categoryKey: i.categoryKey,
+        })),
+        subtotal,
+        tax,
+        packagingFee: PACKAGING_FEE,
+        tip: tipAmount,
+        total,
+        pickupTime: "ASAP (25–35 min)",
+      });
+
+      clearCart();
+      router.push(`/order/confirmation?id=${id}&order=${orderNumber}`);
+    } catch (err) {
+      console.error("Order failed:", err);
+      setError("Something went wrong. Please try again.");
+      setLoading(false);
+    }
+  };
 
   return (
     <div style={{ background: "rgb(var(--bg-primary))", minHeight: "100vh", overflow: "hidden" }}>
@@ -230,12 +287,12 @@ export default function CheckoutPage() {
           {/* ── Contact Info ── */}
           <FormSection label="Contact Information" delay={1}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }} className="checkout-field-row">
-              <Field label="First Name" placeholder="John" />
-              <Field label="Last Name" placeholder="Doe" />
+              <Field label="First Name" placeholder="John" value={firstName} onChange={setFirstName} />
+              <Field label="Last Name" placeholder="Doe" value={lastName} onChange={setLastName} />
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }} className="checkout-field-row">
-              <Field label="Phone" placeholder="(323) 000-0000" type="tel" />
-              <Field label="Email" placeholder="john@email.com" type="email" />
+              <Field label="Phone" placeholder="(323) 000-0000" type="tel" value={phone} onChange={setPhone} />
+              <Field label="Email" placeholder="john@email.com" type="email" value={email} onChange={setEmail} />
             </div>
           </FormSection>
 
@@ -329,9 +386,36 @@ export default function CheckoutPage() {
             </div>
           </FormSection>
 
+          {/* ── Error message ── */}
+          {error && (
+            <div
+              style={{
+                padding: "14px 18px",
+                background: "rgba(168,84,84,0.1)",
+                border: "1px solid rgba(168,84,84,0.2)",
+                borderRadius: 10,
+                fontFamily: "var(--font-body)",
+                fontSize: 13,
+                color: "#e07070",
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                marginBottom: 8,
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 8v4m0 4h.01" />
+              </svg>
+              {error}
+            </div>
+          )}
+
           {/* ── Place Order ── */}
           <div style={{ animation: "checkoutFadeUp 0.5s ease both", animationDelay: "0.33s" }}>
             <button
+              onClick={handlePlaceOrder}
+              disabled={loading}
               className="btn-gold-filled"
               style={{
                 width: "100%",
@@ -347,21 +431,43 @@ export default function CheckoutPage() {
                 justifyContent: "center",
                 gap: 12,
                 transition: "all 0.35s cubic-bezier(0.16,1,0.3,1)",
+                opacity: loading ? 0.6 : 1,
+                cursor: loading ? "wait" : "pointer",
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.transform = "translateY(-2px)";
-                e.currentTarget.style.boxShadow = "0 12px 40px rgba(201,160,80,0.35)";
+                if (!loading) {
+                  e.currentTarget.style.transform = "translateY(-2px)";
+                  e.currentTarget.style.boxShadow = "0 12px 40px rgba(201,160,80,0.35)";
+                }
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.transform = "translateY(0)";
                 e.currentTarget.style.boxShadow = "0 8px 32px rgba(201,160,80,0.25)";
               }}
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="3" y="11" width="18" height="11" rx="2" />
-                <path d="M7 11V7a5 5 0 0110 0v4" />
-              </svg>
-              Place Order · ${total.toFixed(2)}
+              {loading ? (
+                <>
+                  <span
+                    style={{
+                      width: 18,
+                      height: 18,
+                      border: "2px solid rgba(8,6,3,0.3)",
+                      borderTopColor: "#080603",
+                      borderRadius: "50%",
+                      animation: "checkoutSpin 0.6s linear infinite",
+                    }}
+                  />
+                  Placing Order...
+                </>
+              ) : (
+                <>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="11" width="18" height="11" rx="2" />
+                    <path d="M7 11V7a5 5 0 0110 0v4" />
+                  </svg>
+                  Place Order · ${total.toFixed(2)}
+                </>
+              )}
             </button>
             <p
               style={{
@@ -574,6 +680,9 @@ export default function CheckoutPage() {
         @keyframes checkoutFadeUp {
           from { opacity: 0; transform: translateY(16px); }
           to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes checkoutSpin {
+          to { transform: rotate(360deg); }
         }
 
         @media (max-width: 900px) {
