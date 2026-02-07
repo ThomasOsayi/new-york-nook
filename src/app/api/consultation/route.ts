@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
 
     if (resendKey) {
       try {
-        await fetch("https://api.resend.com/emails", {
+        const emailRes = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -42,6 +42,9 @@ export async function POST(req: NextRequest) {
             html: buildEmailHtml(body, referenceNumber),
           }),
         });
+
+        const resendData = await emailRes.json();
+        console.log("Resend response:", emailRes.status, JSON.stringify(resendData));
       } catch (emailErr) {
         // Log but don't fail the request — Firestore write already succeeded
         console.error("Resend email failed:", emailErr);
