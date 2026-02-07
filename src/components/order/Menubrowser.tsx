@@ -5,6 +5,8 @@ import Image from "next/image";
 import { categories, menuData } from "@/data/menu";
 import { useCart, type CartItem } from "@/components/order/Cartcontext";
 import type { MenuItem } from "@/data/menu";
+import { db } from "@/lib/firebase";
+import { collection, onSnapshot } from "firebase/firestore";
 
 /* ── Tag styling map ── */
 const TAG_STYLES: Record<string, { label: string; bg: string; color: string; border: string }> = {
@@ -14,6 +16,9 @@ const TAG_STYLES: Record<string, { label: string; bg: string; color: string; bor
   gf:      { label: "GF",        bg: "rgba(138,173,138,0.08)", color: "#8aad8a", border: "rgba(138,173,138,0.15)" },
   v:       { label: "V",         bg: "rgba(125,184,127,0.08)", color: "#7db87f", border: "rgba(125,184,127,0.15)" },
 };
+
+/* ── Inventory status type ── */
+type ItemStatus = "available" | "low" | "86";
 
 /* ── Toast Component ── */
 function Toast({ message, show }: { message: string; show: boolean }) {
@@ -104,14 +109,18 @@ function MenuItemCard({
   item,
   categoryKey,
   onAdded,
+  inventoryStatus,
 }: {
   item: MenuItem;
   categoryKey: string;
   onAdded: (name: string) => void;
+  inventoryStatus: ItemStatus;
 }) {
   const { items, addItem, updateQty, removeItem } = useCart();
   const cartItem = items.find((i: CartItem) => i.name === item.name && i.categoryKey === categoryKey);
   const [hovered, setHovered] = useState(false);
+
+  const isLow = inventoryStatus === "low";
 
   const badgeTags = item.tags?.filter((t) => t === "popular" || t === "new" || t === "spicy") ?? [];
   const dietaryTags = item.tags?.filter((t) => t === "gf" || t === "v") ?? [];
@@ -173,6 +182,27 @@ function MenuItemCard({
             transition: "background 0.4s",
           }}
         />
+        {/* Running Low badge on image */}
+        {isLow && (
+          <div
+            style={{
+              position: "absolute",
+              top: 8,
+              left: 8,
+              background: "rgba(232,196,104,0.9)",
+              color: "#1a1508",
+              fontSize: 8,
+              fontWeight: 700,
+              fontFamily: "var(--font-body)",
+              letterSpacing: 1,
+              textTransform: "uppercase",
+              padding: "3px 7px",
+              borderRadius: 4,
+            }}
+          >
+            Few Left
+          </div>
+        )}
       </div>
 
       {/* Info */}
@@ -349,12 +379,14 @@ function CategorySection({
   img,
   items,
   onItemAdded,
+  inventoryStatuses,
 }: {
   categoryKey: string;
   label: string;
   img: string;
   items: MenuItem[];
   onItemAdded: (name: string) => void;
+  inventoryStatuses: Record<string, ItemStatus>;
 }) {
   return (
     <section style={{ padding: "40px 0 10px" }}>
@@ -412,7 +444,13 @@ function CategorySection({
       {/* Items */}
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {items.map((item) => (
-          <MenuItemCard key={item.name} item={item} categoryKey={categoryKey} onAdded={onItemAdded} />
+          <MenuItemCard
+            key={item.name}
+            item={item}
+            categoryKey={categoryKey}
+            onAdded={onItemAdded}
+            inventoryStatus={inventoryStatuses[item.name] ?? "available"}
+          />
         ))}
       </div>
     </section>
@@ -427,8 +465,24 @@ export default function MenuBrowser() {
   const [search, setSearch] = useState("");
   const [toast, setToast] = useState({ show: false, message: "" });
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  /* ── Inventory: real-time Firestore subscription ── */
+  const [inventoryStatuses, setInventoryStatuses] = useState<Record<string, ItemStatus>>({});
+
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, "inventory"), (snapshot) => {
+      const next: Record<string, ItemStatus> = {};
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        if (data.name && data.status) {
+          next[data.name as string] = data.status as ItemStatus;
+        }
+      });
+      setInventoryStatuses(next);
+    });
+    return () => unsub();
+  }, []);
 
   /* Show toast */
   const showToast = (name: string) => {
@@ -437,23 +491,30 @@ export default function MenuBrowser() {
     toastTimer.current = setTimeout(() => setToast({ show: false, message: "" }), 2600);
   };
 
-  /* Filter items by search */
+  /* Filter items by search AND hide items that are "out" (86'd) */
   const filteredCategories = useMemo(() => {
     const q = search.toLowerCase().trim();
     return categories
       .map((cat) => {
         const items = menuData[cat.key] ?? [];
-        const filtered = q
-          ? items.filter(
-              (item) =>
-                item.name.toLowerCase().includes(q) ||
-                (item.desc?.toLowerCase().includes(q) ?? false)
-            )
-          : items;
+        const filtered = items.filter((item) => {
+          // Hide items marked as "out" (86'd) from customers
+          const status = inventoryStatuses[item.name] ?? "available";
+          if (status === "86") return false;
+
+          // Apply search filter
+          if (q) {
+            return (
+              item.name.toLowerCase().includes(q) ||
+              (item.desc?.toLowerCase().includes(q) ?? false)
+            );
+          }
+          return true;
+        });
         return { ...cat, items: filtered };
       })
       .filter((cat) => cat.items.length > 0);
-  }, [search]);
+  }, [search, inventoryStatuses]);
 
   /* Categories to display based on active tab */
   const displayCategories = useMemo(() => {
@@ -461,15 +522,20 @@ export default function MenuBrowser() {
     return filteredCategories.filter((c) => c.key === activeTab);
   }, [activeTab, filteredCategories]);
 
-  /* Total item count per category (for tab badges) */
+  /* Total item count per category (only available items) */
   const catCounts = useMemo(() => {
     const counts: Record<string, number> = {};
+    let total = 0;
     categories.forEach((cat) => {
-      counts[cat.key] = (menuData[cat.key] ?? []).length;
+      const available = (menuData[cat.key] ?? []).filter(
+        (item) => (inventoryStatuses[item.name] ?? "available") !== "86"
+      ).length;
+      counts[cat.key] = available;
+      total += available;
     });
-    counts.all = Object.values(counts).reduce((s, n) => s + n, 0);
+    counts.all = total;
     return counts;
-  }, []);
+  }, [inventoryStatuses]);
 
   /* Scroll to category section on tab click */
   const handleTabClick = (key: string) => {
@@ -588,6 +654,7 @@ export default function MenuBrowser() {
                 img={cat.img}
                 items={cat.items}
                 onItemAdded={showToast}
+                inventoryStatuses={inventoryStatuses}
               />
             </div>
           ))

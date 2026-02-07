@@ -3,43 +3,165 @@
 import { useInView } from "@/hooks/useInView";
 
 const contactBlocks = [
-  { icon: "📍", label: "Location", main: "7065 Sunset Blvd", sub: "Hollywood, CA 90028" },
-  { icon: "📞", label: "Reservations", main: "(323) 410-1400", sub: "Call or text anytime", href: "tel:+13234101400" },
-  { icon: "🕐", label: "Hours", main: "Tue – Sun 5–11 PM", sub: "Monday Closed" },
+  {
+    icon: "📍",
+    label: "Location",
+    main: "7065 Sunset Blvd",
+    sub: "Hollywood, CA 90028",
+  },
+  {
+    icon: "📞",
+    label: "Reservations",
+    main: "(323) 410-1400",
+    sub: "Call or text anytime",
+    href: "tel:+13234101400",
+  },
+  {
+    icon: "🕐",
+    label: "Hours",
+    main: "Tue – Sun 5–11 PM",
+    sub: "Monday Closed",
+  },
 ];
 
 export default function ContactSection() {
   const [ref, visible] = useInView();
 
   return (
-    <section ref={ref as React.Ref<HTMLElement>} style={{ padding: "120px 0", background: "#080603" }}>
+    <section
+      ref={ref as React.Ref<HTMLElement>}
+      style={{
+        padding: "clamp(60px, 10vw, 120px) 0",
+        background: "#080603",
+      }}
+    >
       <div
         style={{
           maxWidth: 1200,
           margin: "0 auto",
-          padding: "0 clamp(20px,4vw,60px)",
+          padding: "0 clamp(16px, 4vw, 60px)",
           opacity: visible ? 1 : 0,
-          transform: visible ? "translateY(0)" : "translateY(40px)",
-          transition: "all 1s ease",
+          transform: visible ? "translateY(0)" : "translateY(30px)",
+          transition: "all 0.9s cubic-bezier(0.22,1,0.36,1)",
         }}
       >
-        <div style={{ textAlign: "center", marginBottom: 64 }}>
-          <span style={{ fontFamily: "var(--font-body)", fontSize: 11, letterSpacing: 6, color: "#C9A050", textTransform: "uppercase" }}>Find Us</span>
-          <h2 style={{ fontFamily: "var(--font-display)", fontSize: "clamp(36px,4vw,52px)", fontWeight: 400, color: "#fff", margin: "16px 0 0" }}>Visit</h2>
-          <div style={{ width: 60, height: 2, background: "linear-gradient(90deg,transparent,#C9A050,transparent)", margin: "24px auto 0" }} />
+        {/* Header */}
+        <div
+          style={{
+            textAlign: "center",
+            marginBottom: "clamp(36px, 6vw, 64px)",
+          }}
+        >
+          <span
+            style={{
+              fontFamily: "var(--font-body)",
+              fontSize: "clamp(9px, 1.4vw, 11px)",
+              letterSpacing: "clamp(3px, 0.8vw, 6px)",
+              color: "#C9A050",
+              textTransform: "uppercase",
+            }}
+          >
+            Find Us
+          </span>
+          <h2
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "clamp(32px, 4vw, 52px)",
+              fontWeight: 400,
+              color: "#fff",
+              margin: "16px 0 0",
+            }}
+          >
+            Visit
+          </h2>
+          <div
+            style={{
+              width: 60,
+              height: 2,
+              background:
+                "linear-gradient(90deg,transparent,#C9A050,transparent)",
+              margin: "24px auto 0",
+              transform: visible ? "scaleX(1)" : "scaleX(0)",
+              transition: "transform 1s cubic-bezier(0.22,1,0.36,1) 0.3s",
+            }}
+          />
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 40, marginBottom: 64 }} className="contact-grid">
+        {/* Contact cards */}
+        <div
+          className="contact-grid"
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gap: "clamp(12px, 3vw, 40px)",
+            marginBottom: "clamp(36px, 6vw, 64px)",
+          }}
+        >
           {contactBlocks.map((b, i) => (
-            <div key={i} style={{ textAlign: "center", padding: 36, border: "1px solid rgba(255,255,255,0.04)", background: "rgba(255,255,255,0.01)" }}>
-              <div style={{ fontSize: 28, marginBottom: 16 }}>{b.icon}</div>
-              <p style={{ fontFamily: "var(--font-body)", fontSize: 10, fontWeight: 500, letterSpacing: 4, color: "#C9A050", textTransform: "uppercase", marginBottom: 16 }}>{b.label}</p>
+            <div
+              key={i}
+              style={{
+                textAlign: "center",
+                padding: "clamp(20px, 4vw, 36px) clamp(16px, 3vw, 36px)",
+                border: "1px solid rgba(255,255,255,0.04)",
+                background: "rgba(255,255,255,0.01)",
+                opacity: visible ? 1 : 0,
+                transform: visible ? "translateY(0)" : "translateY(16px)",
+                transition: `all 0.6s cubic-bezier(0.22,1,0.36,1) ${0.15 + i * 0.1}s`,
+              }}
+            >
+              <div style={{ fontSize: "clamp(22px, 3vw, 28px)", marginBottom: "clamp(10px, 2vw, 16px)" }}>
+                {b.icon}
+              </div>
+              <p
+                style={{
+                  fontFamily: "var(--font-body)",
+                  fontSize: "clamp(9px, 1.1vw, 10px)",
+                  fontWeight: 500,
+                  letterSpacing: "clamp(2px, 0.5vw, 4px)",
+                  color: "#C9A050",
+                  textTransform: "uppercase",
+                  marginBottom: "clamp(10px, 2vw, 16px)",
+                }}
+              >
+                {b.label}
+              </p>
               {b.href ? (
-                <a href={b.href} style={{ fontFamily: "var(--font-display)", fontSize: 20, color: "#fff", textDecoration: "none", display: "block", marginBottom: 6 }}>{b.main}</a>
+                <a
+                  href={b.href}
+                  style={{
+                    fontFamily: "var(--font-display)",
+                    fontSize: "clamp(16px, 2vw, 20px)",
+                    color: "#fff",
+                    textDecoration: "none",
+                    display: "block",
+                    marginBottom: 6,
+                  }}
+                >
+                  {b.main}
+                </a>
               ) : (
-                <p style={{ fontFamily: "var(--font-display)", fontSize: 20, color: "#fff", margin: "0 0 6px" }}>{b.main}</p>
+                <p
+                  style={{
+                    fontFamily: "var(--font-display)",
+                    fontSize: "clamp(16px, 2vw, 20px)",
+                    color: "#fff",
+                    margin: "0 0 6px",
+                  }}
+                >
+                  {b.main}
+                </p>
               )}
-              <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "rgba(255,255,255,0.3)", margin: 0 }}>{b.sub}</p>
+              <p
+                style={{
+                  fontFamily: "var(--font-body)",
+                  fontSize: "clamp(11px, 1.2vw, 12px)",
+                  color: "rgba(255,255,255,0.3)",
+                  margin: 0,
+                }}
+              >
+                {b.sub}
+              </p>
             </div>
           ))}
         </div>
@@ -48,9 +170,11 @@ export default function ContactSection() {
         <div
           style={{
             position: "relative",
-            height: 400,
+            height: "clamp(280px, 40vw, 400px)",
             overflow: "hidden",
             border: "1px solid rgba(255,255,255,0.06)",
+            opacity: visible ? 1 : 0,
+            transition: "opacity 0.8s cubic-bezier(0.22,1,0.36,1) 0.4s",
           }}
         >
           <iframe
@@ -59,7 +183,8 @@ export default function ContactSection() {
             height="100%"
             style={{
               border: 0,
-              filter: "invert(0.9) hue-rotate(180deg) brightness(0.7) contrast(1.1) saturate(0.3)",
+              filter:
+                "invert(0.9) hue-rotate(180deg) brightness(0.7) contrast(1.1) saturate(0.3)",
             }}
             allowFullScreen
             loading="lazy"
@@ -74,19 +199,22 @@ export default function ContactSection() {
               bottom: 0,
               left: 0,
               right: 0,
-              padding: "20px 24px",
-              background: "linear-gradient(180deg, transparent 0%, rgba(8,6,3,0.9) 100%)",
+              padding: "clamp(12px, 2.5vw, 20px) clamp(14px, 3vw, 24px)",
+              background:
+                "linear-gradient(180deg, transparent 0%, rgba(8,6,3,0.9) 100%)",
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
+              gap: 12,
               pointerEvents: "none",
+              flexWrap: "wrap",
             }}
           >
-            <div>
+            <div style={{ minWidth: 0 }}>
               <span
                 style={{
                   fontFamily: "var(--font-display)",
-                  fontSize: 16,
+                  fontSize: "clamp(13px, 1.8vw, 16px)",
                   color: "#fff",
                   display: "block",
                   marginBottom: 2,
@@ -97,7 +225,7 @@ export default function ContactSection() {
               <span
                 style={{
                   fontFamily: "var(--font-body)",
-                  fontSize: 11,
+                  fontSize: "clamp(9px, 1.2vw, 11px)",
                   color: "rgba(255,255,255,0.35)",
                 }}
               >
@@ -110,17 +238,19 @@ export default function ContactSection() {
               rel="noopener noreferrer"
               style={{
                 fontFamily: "var(--font-body)",
-                fontSize: 10,
+                fontSize: "clamp(9px, 1vw, 10px)",
                 letterSpacing: 2,
                 textTransform: "uppercase",
                 background: "rgba(8,6,3,0.8)",
                 border: "1px solid rgba(183,143,82,0.3)",
                 color: "#C9A050",
-                padding: "10px 24px",
+                padding: "clamp(8px, 1.2vw, 10px) clamp(14px, 2.5vw, 24px)",
                 cursor: "pointer",
                 textDecoration: "none",
                 pointerEvents: "auto",
                 transition: "all 0.3s",
+                whiteSpace: "nowrap",
+                flexShrink: 0,
               }}
             >
               Get Directions

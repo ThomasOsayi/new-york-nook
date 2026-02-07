@@ -27,6 +27,11 @@ new-york-nook/
     │   ├── globals.css
     │   ├── layout.tsx
     │   ├── page.tsx
+    │   ├── api/
+    │   │   └── consultation/
+    │   │       └── route.ts
+    │   ├── catering/
+    │   │   └── page.tsx
     │   ├── login/
     │   │   ├── layout.tsx
     │   │   └── page.tsx
@@ -68,6 +73,7 @@ new-york-nook/
     │
     ├── lib/
     │   ├── auth.ts
+    │   ├── consultation.ts
     │   ├── firebase.ts
     │   └── order.ts
     │
@@ -90,6 +96,7 @@ new-york-nook/
 | **Tailwind CSS** | ^4 |
 | **Framer Motion** | ^12.33.0 |
 | **Firebase** | Firestore + Auth (Firebase JS SDK) |
+| **Resend** | Email API (catering inquiry notifications) |
 | **clsx** | ^2.1.1 |
 | **ESLint** | ^9 (eslint-config-next 16.1.6) |
 
@@ -106,6 +113,15 @@ new-york-nook/
 | **`/login`** | Staff login: email + password form; `signIn()` from `auth.ts` (Firebase Auth, whitelist `ALLOWED_EMAILS`). On success redirect to `/dashboard`. Error handling for invalid credentials, unauthorized, too-many-requests. |
 | **`/dashboard`** | Redirects to `/dashboard/orders`. |
 | **`/dashboard/orders`** | Kitchen orders dashboard: real-time Firestore `onSnapshot`; order list with filter tabs (Active, Pending, Preparing, Ready, Completed); stats; order detail panel with status progression and Cancel; `updateDoc` for status changes. No auth middleware. |
+| **`/catering`** | Full catering page: hero, services (Private Dining, Corporate, Wedding, Custom Menus), experience highlights, pricing packages (Zakuski $85, Tsar $165, Grand Feast $250), sample menu, gallery, FAQ, consultation form modal. Form POSTs to `/api/consultation`; saves to Firestore; sends email via Resend; success state with reference number. Navbar with links to home sections and `/catering`. |
+
+---
+
+### API Routes
+
+| Route | Method | Purpose |
+|-------|--------|---------|
+| **`/api/consultation`** | POST | Catering inquiry: validates firstName, lastName, email, phone, eventType; saves to Firestore `consultations` via `createConsultation()`; sends HTML email to `CONSULTATION_NOTIFY_EMAIL` via Resend; returns `{ id, referenceNumber }`. Reference format `NYN-C-MMDD-XXXX`. |
 
 ---
 
@@ -117,6 +133,7 @@ new-york-nook/
 - **`order/page.tsx`** — Order page at `/order`: two-column layout (Menubrowser + CartSidebar); responsive grid (sidebar becomes bottom sheet on ≤900px).
 - **`order/checkout/page.tsx`** — Checkout at `/order/checkout`: full checkout form and order summary; calls `createOrder()` with cart + customer + tip; redirects to `/order/confirmation?id=...&order=...`.
 - **`order/confirmation/page.tsx`** — Confirmation at `/order/confirmation`: reads `id` and `order` from query; fetches order with `getOrder(id)`; displays order details or error.
+- **`catering/page.tsx`** — Full catering page at `/catering`: hero, services, packages, menu samples, gallery, FAQ; consultation form in modal; submits to `/api/consultation`; success shows reference number.
 - **`login/layout.tsx`** — Passthrough layout (no wrapper).
 - **`login/page.tsx`** — Login form; `signIn()`; redirect to `/dashboard` on success.
 - **`dashboard/page.tsx`** — Server redirect to `/dashboard/orders`.
@@ -136,7 +153,7 @@ new-york-nook/
 | **Menu** | `MenuSection.tsx` | Category tabs with images (Cold Appetizers, Salads, Soups, etc.); sticky image + scrolling menu items; prices (or “MP” for market price); `fadeSlideIn` on items. |
 | **Gallery** | `GallerySection.tsx` | Masonry-style grid with variable row spans; hover overlays; lightbox with prev/next and close; `useInView` reveal. |
 | **Order** | `OrderSection.tsx` | Three-step explainer (Browse & Select → Customize & Pay → Pickup & Enjoy); full-width background image; `useInView` reveal; “Start Your Order” CTA links to `/order`. |
-| **Catering** | `CateringSection.tsx` | Image grid + copy; services list (Private Dining, Corporate, Wedding, Custom Menus); “Inquire Now” CTA. |
+| **Catering** | `CateringSection.tsx` | Image grid + copy; services list (Private Dining, Corporate, Wedding, Custom Menus); “View Packages” links to `/catering`; “Inquire Now” button (placeholder). |
 | **Reservations** | `ReservationSection.tsx` | Form: name, phone, date picker, time slots (5:00–9:30 PM), party size (1–8+); success state with confirmation message; copy (Tue–Sun 5–11 PM, parties 8+ call, smart casual); `useInView` reveal. |
 | **Contact** | `ContactSection.tsx` | Three blocks: Location (7065 Sunset Blvd), Reservations (tel link), Hours (Tue–Sun 5–11 PM); map placeholder with “Open in Maps” link to Google Maps; `useInView` reveal. |
 | **Footer** | `Footer.tsx` | Brand block with logo and tagline; three link columns (Navigate: Menu, Gallery, Reservations, Order Online, Catering; Connect: Instagram, Facebook, Yelp, Google; Info: Private Events, Gift Cards, Press, **Login**); Login links to `/login`; others placeholder `#`; copyright; address (7065 Sunset Blvd). |
@@ -160,6 +177,7 @@ new-york-nook/
 | File | Purpose |
 |------|---------|
 | **`auth.ts`** | Firebase Auth: `signIn(email, password)` — whitelist `ALLOWED_EMAILS` (e.g. `nook@gmail.com`); rejects non-whitelisted before/after auth; `signOut()`. Used by login page and dashboard layout. |
+| **`consultation.ts`** | `ConsultationData` interface; `createConsultation(data)` → writes to Firestore `consultations` collection; returns `{ id, referenceNumber }` (format `NYN-C-MMDD-XXXX`). Used by `/api/consultation`. |
 | **`firebase.ts`** | Firebase app init (singleton via `getApps()`); Firestore `db` export. Config from env: `NEXT_PUBLIC_FIREBASE_API_KEY`, `AUTH_DOMAIN`, `PROJECT_ID`, `STORAGE_BUCKET`, `MESSAGING_SENDER_ID`, `APP_ID`, `MEASUREMENT_ID`. Use `.env.local` (gitignored). |
 | **`order.ts`** | Order persistence: `OrderItem`, `OrderData` interfaces; `createOrder(data)` → writes to Firestore `orders` collection, returns `{ id, orderNumber }` (order number format `NYN-MMDD-XXXX`); `getOrder(orderId)` → fetches by doc ID, returns order or null. Dashboard uses Firestore `updateDoc` directly for status changes. |
 
@@ -201,7 +219,7 @@ new-york-nook/
 4. **Checkout** — Orders are stored in Firestore only; no payment processor (Stripe, Square, etc.) integrated. Add payment if required.
 5. **Dashboard auth** — `/dashboard` has no middleware or layout guard; anyone can visit. Add `onAuthStateChanged` redirect to `/login` or Next.js middleware if protection needed.
 6. **Dashboard nav** — Inventory, Staff, Analytics, Settings links 404; only Orders page exists.
-7. **CateringSection.tsx** — Connect “Inquire Now” to form or email.
+7. **CateringSection.tsx** — “View Packages” links to `/catering`. “Inquire Now” is placeholder; full form is on `/catering` page.
 8. **ReservationSection.tsx** — Replace mock submit with real backend (OpenTable, Resy, or custom API).
 9. **ContactSection.tsx** — Replace map placeholder with Google Maps or Mapbox embed.
 10. **signatures.ts** — Replace Unsplash placeholders with real food photos.
@@ -215,11 +233,12 @@ new-york-nook/
 1. **Home page** (`/`): Hero (Home) → SigDishes → Menu → Gallery → Order → Catering → Reserve → Contact → Footer.
 2. **Order flow**: `/order` (browse + cart) → CartSidebar “Proceed to Checkout” → `/order/checkout` (form + place order) → `createOrder()` → redirect to `/order/confirmation?id=<docId>&order=<orderNumber>` → confirmation page fetches order with `getOrder(id)`.
 3. **Order layout**: All `/order/*` routes share `CartProvider` (order layout).
-4. **Nav links (home)**: “Order” in Navbar uses `router.push("/order")`. Other nav items smooth-scroll on home.
+4. **Nav links (home)**: “Order” → `router.push("/order")`, “Catering” → `router.push("/catering")`. Other nav items smooth-scroll on home.
 5. **Hero CTAs**: “Reserve a Table” → scroll to Reserve, “Order Takeout” → scroll to Order section, “View Menu” → scroll to Menu.
 6. **OrderSection**: “Start Your Order →” links to `/order`.
 7. **Footer links**: Login links to `/login`; others placeholder `#`.
 8. **Login flow**: Footer “Login” or direct `/login` → sign in (whitelisted email) → redirect to `/dashboard` (→ `/dashboard/orders`). Dashboard “Sign Out” → `signOut()` → redirect to `/login`.
+9. **Catering flow**: CateringSection “View Packages” → `/catering`; Navbar “Catering” → `/catering`; catering page “Request Consultation” opens modal; form POSTs to `/api/consultation` → Firestore + Resend email → success with reference number.
 
 ---
 
@@ -239,7 +258,7 @@ new-york-nook/
 | `tsconfig.json` | TypeScript paths (`@/` → `src/`). |
 | `eslint.config.mjs` | ESLint flat config. |
 | `postcss.config.mjs` | PostCSS + Tailwind. |
-| `.env.local` | Firebase env vars (gitignored): `NEXT_PUBLIC_FIREBASE_API_KEY`, `AUTH_DOMAIN`, `PROJECT_ID`, `STORAGE_BUCKET`, `MESSAGING_SENDER_ID`, `APP_ID`, `MEASUREMENT_ID`. |
+| `.env.local` | Firebase env vars (gitignored): `NEXT_PUBLIC_FIREBASE_*`; Resend: `RESEND_API_KEY`, `RESEND_FROM_EMAIL`; catering: `CONSULTATION_NOTIFY_EMAIL` (recipient for inquiry emails). |
 
 ---
 
