@@ -13,6 +13,7 @@ import {
 } from "firebase/firestore";
 import "@/lib/auth";
 import type { ConsultationData } from "@/lib/consultation";
+import { useIsMobile, useIsTablet } from "@/hooks/useIsMobile";
 
 /* ── Status config ─────────────────────────────────────── */
 type InquiryStatus = "new" | "contacted" | "tasting" | "confirmed" | "completed" | "cancelled";
@@ -269,9 +270,10 @@ function InquiryCard({ inquiry, isSelected, onClick }: {
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    Inquiry Detail Panel
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-function InquiryDetail({ inquiry, onStatusChange }: {
+function InquiryDetail({ inquiry, onStatusChange, isMobile }: {
   inquiry: FirestoreConsultation | null;
   onStatusChange: (id: string, status: InquiryStatus) => void;
+  isMobile?: boolean;
 }) {
   if (!inquiry) {
     return (
@@ -423,7 +425,7 @@ function InquiryDetail({ inquiry, onStatusChange }: {
                   {/* Label */}
                   <div
                     style={{
-                      fontSize: 9, letterSpacing: 1, textTransform: "uppercase",
+                      fontSize: isMobile ? 12 : 9, letterSpacing: 1, textTransform: "uppercase",
                       color: isDone ? "rgba(255,255,255,0.35)" : isActive ? stepCfg.color : "rgba(255,255,255,0.15)",
                       marginTop: 6, fontFamily: "var(--font-body)",
                     }}
@@ -681,6 +683,8 @@ function InquiryDetail({ inquiry, onStatusChange }: {
    Catering Inquiries Page
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 export default function CateringPage() {
+  const isMobile = useIsMobile();
+  const isTablet = useIsTablet();
   const [inquiries, setInquiries] = useState<FirestoreConsultation[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filter, setFilter] = useState("all");
@@ -746,7 +750,7 @@ export default function CateringPage() {
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          padding: "0 28px",
+          padding: isTablet ? "0 16px" : "0 28px",
           height: 60,
           borderBottom: "1px solid rgba(255,255,255,0.06)",
           background: "rgba(255,255,255,0.015)",
@@ -798,9 +802,9 @@ export default function CateringPage() {
         </div>
       </header>
 
-      <div style={{ padding: "20px 28px" }}>
+      <div style={{ padding: isTablet ? "20px 16px" : "20px 28px" }}>
         {/* ── Stats row ── */}
-        <div style={{ display: "flex", gap: 14, marginBottom: 24 }}>
+        <div className="dash-stats-row" style={{ display: "flex", gap: 14, marginBottom: 24 }}>
           <StatCard
             label="New Inquiries"
             value={newCount}
@@ -827,7 +831,7 @@ export default function CateringPage() {
         </div>
 
         {/* ── Filter tabs ── */}
-        <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
+        <div className="dash-filter-tabs" style={{ display: "flex", gap: 6, marginBottom: 16 }}>
           {FILTER_TABS.map((tab) => {
             const count = inquiries.filter((i) => tab.statuses.includes(i.status)).length;
             const active = filter === tab.key;
@@ -836,7 +840,8 @@ export default function CateringPage() {
                 key={tab.key}
                 onClick={() => setFilter(tab.key)}
                 style={{
-                  padding: "7px 14px",
+                  padding: "10px 14px",
+                  minHeight: 44,
                   borderRadius: 8,
                   border: active
                     ? "1px solid rgba(201,160,80,0.25)"
@@ -871,9 +876,10 @@ export default function CateringPage() {
 
         {/* ── Main grid: list + detail ── */}
         <div
+          className="dash-split-layout"
           style={{
             display: "grid",
-            gridTemplateColumns: "1fr 420px",
+            gridTemplateColumns: isTablet ? "1fr" : "1fr 420px",
             gap: 18,
             minHeight: "calc(100vh - 280px)",
           }}
@@ -957,20 +963,51 @@ export default function CateringPage() {
             )}
           </div>
 
-          {/* Detail panel */}
-          <div
-            style={{
-              background: "rgba(255,255,255,0.015)",
-              border: "1px solid rgba(255,255,255,0.05)",
-              borderRadius: 14,
-              overflow: "hidden",
-              maxHeight: "calc(100vh - 280px)",
-            }}
-          >
-            <InquiryDetail inquiry={selected} onStatusChange={handleStatusChange} />
-          </div>
+          {/* Detail panel – desktop only (hidden on tablet via grid col change) */}
+          {!isTablet && (
+            <div
+              style={{
+                background: "rgba(255,255,255,0.015)",
+                border: "1px solid rgba(255,255,255,0.05)",
+                borderRadius: 14,
+                overflow: "hidden",
+                maxHeight: "calc(100vh - 280px)",
+              }}
+            >
+              <InquiryDetail inquiry={selected} onStatusChange={handleStatusChange} isMobile={isMobile} />
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Detail panel – tablet/mobile full-screen overlay */}
+      {isTablet && selected && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 50, background: "rgba(8,6,3,0.98)", overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
+          <button
+            onClick={() => setSelectedId(null)}
+            style={{
+              position: "sticky",
+              top: 0,
+              zIndex: 10,
+              width: "100%",
+              padding: "16px 20px",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              background: "rgba(8,6,3,0.98)",
+              borderBottom: "1px solid rgba(255,255,255,0.06)",
+              border: "none",
+              cursor: "pointer",
+              color: "#C9A050",
+              fontSize: 13,
+              fontFamily: "var(--font-body)",
+            }}
+          >
+            &larr; Back to Inquiries
+          </button>
+          <InquiryDetail inquiry={selected} onStatusChange={handleStatusChange} isMobile={isMobile} />
+        </div>
+      )}
 
       {/* Pulse animation for live dot */}
       <style>{`

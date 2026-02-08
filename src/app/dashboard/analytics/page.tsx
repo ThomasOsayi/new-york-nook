@@ -5,6 +5,7 @@ import { db } from "@/lib/firebase";
 import { collection, onSnapshot, Timestamp } from "firebase/firestore";
 import { categories, menuData } from "@/data/menu";
 import type { OrderData } from "@/lib/order";
+import { useIsMobile, useIsTablet } from "@/hooks/useIsMobile";
 
 /* ══════════════════════════════════════════════
    Types
@@ -108,6 +109,9 @@ function formatCurrency(n: number, compact?: boolean): string {
    Main Component
    ══════════════════════════════════════════════ */
 export default function AnalyticsPage() {
+  const isMobile = useIsMobile();
+  const isTablet = useIsTablet();
+
   /* ── Raw Firestore data ── */
   const [orders, setOrders] = useState<(OrderData & { id: string })[]>([]);
   const [consultations, setConsultations] = useState<(ConsultationDoc & { id: string })[]>([]);
@@ -481,7 +485,7 @@ export default function AnalyticsPage() {
   return (
     <div style={{ minHeight: "100vh" }}>
       {/* ── Topbar ── */}
-      <div style={S.topbar}>
+      <div className="analytics-topbar" style={{ ...S.topbar, padding: isTablet ? "0 16px" : "0 28px" }}>
         <h1 style={S.topbarTitle}>Analytics</h1>
         <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
           {/* Period toggle */}
@@ -500,7 +504,7 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
-      <div style={{ padding: "20px 28px" }}>
+      <div style={{ padding: isTablet ? "20px 16px" : "20px 28px" }}>
         {loading ? (
           <div style={S.loadingState}>
             <span style={{ fontSize: 28, opacity: 0.3 }}>⏳</span>
@@ -509,7 +513,7 @@ export default function AnalyticsPage() {
         ) : (
           <>
             {/* ═══ Stat Cards ═══ */}
-            <div style={S.statsRow}>
+            <div className="dash-stats-row" style={S.statsRow}>
               <StatCard
                 label="Total Revenue"
                 value={formatCurrency(stats.totalRevenue)}
@@ -547,7 +551,7 @@ export default function AnalyticsPage() {
                   </div>
                 </div>
               </div>
-              <div style={{ position: "relative", height: 220 }}>
+              <div style={{ position: "relative", height: isMobile ? 160 : 220 }}>
                 <svg
                   style={{ width: "100%", height: "100%" }}
                   viewBox="0 0 900 220"
@@ -558,7 +562,7 @@ export default function AnalyticsPage() {
             </div>
 
             {/* ═══ Popular Items + Heatmap ═══ */}
-            <div style={S.grid2}>
+            <div style={{ ...S.grid2, gridTemplateColumns: isTablet ? "1fr" : "1.4fr 1fr" }}>
               {/* Popular Items */}
               <div style={S.panel}>
                 <div style={S.panelHeader}>
@@ -577,7 +581,7 @@ export default function AnalyticsPage() {
                         <div style={S.itemName}>{item.name}</div>
                         <div style={S.itemCat}>{CATEGORY_LABELS[item.categoryKey] ?? item.categoryKey}</div>
                       </div>
-                      <div style={S.barTrack}>
+                      <div className="analytics-item-bar" style={S.barTrack}>
                         <div style={{ ...S.barFill, width: `${item.pct}%` }} />
                       </div>
                       <span style={S.itemCount}>{item.count} sold</span>
@@ -593,7 +597,7 @@ export default function AnalyticsPage() {
                   <div style={S.panelTitle}>Peak Hours</div>
                   <span style={{ fontSize: 11, color: "rgba(255,255,255,0.2)" }}>Last 30 days</span>
                 </div>
-                <div style={S.heatmapGrid}>
+                <div style={{ ...S.heatmapGrid, gridTemplateColumns: isMobile ? "30px repeat(7, 1fr)" : "40px repeat(7, 1fr)", gap: isMobile ? 2 : 3 }}>
                   {/* Header row */}
                   <div />
                   {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
@@ -640,7 +644,7 @@ export default function AnalyticsPage() {
             </div>
 
             {/* ═══ Category Breakdown + Order Breakdown + 86'd Log ═══ */}
-            <div style={S.grid3}>
+            <div style={{ ...S.grid3, gridTemplateColumns: isMobile ? "1fr" : isTablet ? "1fr 1fr" : "1fr 1fr 1fr" }}>
               {/* Category Breakdown */}
               <div style={S.panel}>
                 <div style={S.panelHeader}>
@@ -748,11 +752,17 @@ export default function AnalyticsPage() {
         )}
       </div>
 
-      {/* ── Live dot animation ── */}
+      {/* ── Live dot animation + responsive styles ── */}
       <style>{`
         @keyframes analyticsPulse {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.4; }
+        }
+        @media (max-width: 600px) {
+          .analytics-topbar { flex-wrap: wrap !important; height: auto !important; padding: 12px 16px !important; gap: 8px !important; }
+          .analytics-item-bar { display: none !important; }
+          .dash-stats-row { flex-wrap: wrap !important; }
+          .dash-stats-row > div { min-width: calc(50% - 10px) !important; }
         }
       `}</style>
     </div>
@@ -786,6 +796,7 @@ function PeriodBtn({ label, active, onClick }: { label: string; active: boolean;
         fontWeight: 600,
         cursor: "pointer",
         fontFamily: "var(--font-body)",
+        minHeight: 44,
         border: active ? "1px solid rgba(201,160,80,0.25)" : "1px solid transparent",
         background: active
           ? "rgba(201,160,80,0.1)"

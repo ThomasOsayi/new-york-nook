@@ -21,6 +21,7 @@ export default function OrderHeader() {
         backdropFilter: "blur(24px) saturate(1.4)",
         borderBottom: `1px solid rgba(183,143,82,${scrolled ? 0.12 : 0.06})`,
         transition: "all 0.5s cubic-bezier(0.22,1,0.36,1)",
+        paddingTop: "env(safe-area-inset-top, 0px)",
         paddingLeft: "env(safe-area-inset-left)",
         paddingRight: "env(safe-area-inset-right)",
       }}

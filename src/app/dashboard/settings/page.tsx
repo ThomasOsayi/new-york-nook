@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useIsMobile, useIsTablet } from "@/hooks/useIsMobile";
 import { db } from "@/lib/firebase";
 import {
   doc,
@@ -115,13 +116,18 @@ function Toggle({
   checked: boolean;
   onChange: (v: boolean) => void;
 }) {
+  const isTablet = useIsTablet();
+  const w = isTablet ? 52 : 40;
+  const h = isTablet ? 30 : 22;
+  const thumb = isTablet ? 22 : 16;
+  const pad = isTablet ? 4 : 3;
   return (
     <button
       onClick={() => onChange(!checked)}
       style={{
-        width: 40,
-        height: 22,
-        borderRadius: 11,
+        width: w,
+        height: h,
+        borderRadius: h / 2,
         border: "none",
         background: checked
           ? "rgba(201,160,80,0.5)"
@@ -134,13 +140,13 @@ function Toggle({
     >
       <div
         style={{
-          width: 16,
-          height: 16,
+          width: thumb,
+          height: thumb,
           borderRadius: "50%",
           background: checked ? "#C9A050" : "rgba(255,255,255,0.35)",
           position: "absolute",
-          top: 3,
-          left: checked ? 21 : 3,
+          top: pad,
+          left: checked ? w - thumb - pad : pad,
           transition: "left 0.2s, background 0.2s",
         }}
       />
@@ -156,6 +162,7 @@ function TimeInput({
   onChange: (v: string) => void;
 }) {
   const [focused, setFocused] = useState(false);
+  const isTablet = useIsTablet();
   return (
     <input
       type="time"
@@ -172,7 +179,7 @@ function TimeInput({
         fontFamily: "'DM Mono', monospace",
         fontSize: 13,
         outline: "none",
-        width: 160,
+        width: isTablet ? "100%" : 160,
         cursor: "pointer",
         transition: "border-color 0.2s",
       }}
@@ -196,8 +203,9 @@ function NumInput({
   width?: number;
 }) {
   const [focused, setFocused] = useState(false);
+  const isTablet = useIsTablet();
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 6, width: isTablet ? "100%" : "auto" }}>
       <input
         type="number"
         value={value}
@@ -215,7 +223,7 @@ function NumInput({
           fontFamily: "'DM Mono', monospace",
           fontSize: 13,
           outline: "none",
-          width,
+          width: isTablet ? "100%" : width,
           textAlign: "center",
           transition: "border-color 0.2s",
         }}
@@ -301,6 +309,8 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
    ═══════════════════════════════════════════════════════════ */
 
 function HoursTab() {
+  const isMobile = useIsMobile();
+  const isTablet = useIsTablet();
   const [data, setData] = useState<HoursData>(DEFAULT_HOURS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -422,7 +432,7 @@ function HoursTab() {
       </div>
 
       {/* ── Week Overview Pills ── */}
-      <div style={{ display: "flex", gap: 6 }}>
+      <div style={{ display: "flex", gap: 6, flexWrap: isMobile ? "wrap" : "nowrap" }}>
         {data.days.map((d, i) => (
           <div
             key={d.day}
@@ -430,7 +440,8 @@ function HoursTab() {
               updateDay(i, { open: !d.open });
             }}
             style={{
-              flex: 1,
+              flex: isMobile ? "1 1 calc(25% - 6px)" : 1,
+              minWidth: isMobile ? 60 : "auto",
               textAlign: "center",
               padding: "12px 0 10px",
               borderRadius: 8,
@@ -483,10 +494,10 @@ function HoursTab() {
           <div
             key={d.day}
             style={{
-              display: "grid",
-              gridTemplateColumns: "170px 70px 1fr",
-              alignItems: "center",
-              gap: 16,
+              display: "flex",
+              flexDirection: isTablet ? "column" : "row",
+              alignItems: isTablet ? "flex-start" : "center",
+              gap: isTablet ? 10 : 16,
               padding: "14px 16px",
               background:
                 i % 2 === 0 ? "rgba(255,255,255,0.02)" : "transparent",
@@ -495,47 +506,65 @@ function HoursTab() {
               transition: "opacity 0.2s",
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <Toggle
-                checked={d.open}
-                onChange={(v) => updateDay(i, { open: v })}
-              />
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              width: isTablet ? "100%" : 170,
+              justifyContent: isTablet ? "space-between" : "flex-start",
+              flexShrink: 0,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <Toggle
+                  checked={d.open}
+                  onChange={(v) => updateDay(i, { open: v })}
+                />
+                <span
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 500,
+                    color: "#fff",
+                    fontFamily: "var(--font-body)",
+                  }}
+                >
+                  {d.day}
+                </span>
+              </div>
               <span
                 style={{
-                  fontSize: 13,
-                  fontWeight: 500,
-                  color: "#fff",
-                  fontFamily: "var(--font-body)",
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: 0.5,
+                  color: d.open ? "#4ADE80" : "#F87171",
+                  width: isTablet ? "auto" : 70,
+                  flexShrink: 0,
                 }}
               >
-                {d.day}
+                {d.open ? "OPEN" : "CLOSED"}
               </span>
             </div>
 
-            <span
-              style={{
-                fontSize: 10,
-                fontWeight: 700,
-                letterSpacing: 0.5,
-                color: d.open ? "#4ADE80" : "#F87171",
-              }}
-            >
-              {d.open ? "OPEN" : "CLOSED"}
-            </span>
-
             {d.open ? (
               <div
-                style={{ display: "flex", alignItems: "center", gap: 14 }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 14,
+                  width: isTablet ? "100%" : "auto",
+                  flexDirection: isTablet ? "column" : "row",
+                }}
               >
                 <TimeInput
                   value={d.openTime}
                   onChange={(v) => updateDay(i, { openTime: v })}
                 />
-                <span
-                  style={{ color: "rgba(255,255,255,0.2)", fontSize: 12 }}
-                >
-                  to
-                </span>
+                {!isTablet && (
+                  <span
+                    style={{ color: "rgba(255,255,255,0.2)", fontSize: 12 }}
+                  >
+                    to
+                  </span>
+                )}
                 <TimeInput
                   value={d.closeTime}
                   onChange={(v) => updateDay(i, { closeTime: v })}
@@ -582,6 +611,8 @@ function HoursTab() {
    ═══════════════════════════════════════════════════════════ */
 
 function PickupTab() {
+  const isMobile = useIsMobile();
+  const isTablet = useIsTablet();
   const [data, setData] = useState<PickupData>(DEFAULT_PICKUP);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -659,7 +690,7 @@ function PickupTab() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
       {/* ── Global Settings Cards ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "1fr 1fr", gap: 14 }}>
         <div
           style={{
             background: "rgba(255,255,255,0.025)",
@@ -766,9 +797,11 @@ function PickupTab() {
             key={slot.id}
             style={{
               display: "grid",
-              gridTemplateColumns: "48px 1fr 220px 120px 40px",
-              alignItems: "center",
-              gap: 14,
+              gridTemplateColumns: isTablet
+                ? "48px 1fr 40px"
+                : "48px 1fr 220px 120px 40px",
+              alignItems: isTablet ? "start" : "center",
+              gap: isTablet ? 10 : 14,
               padding: "16px 18px",
               background: "rgba(255,255,255,0.025)",
               border: `1px solid ${
@@ -811,43 +844,86 @@ function PickupTab() {
               >
                 {slot.minMinutes}–{slot.maxMinutes} minutes
               </div>
+
+              {isTablet && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <NumInput
+                      value={slot.minMinutes}
+                      onChange={(v) => updateSlot(slot.id, { minMinutes: v })}
+                      min={5}
+                      suffix="–"
+                      width={52}
+                    />
+                    <NumInput
+                      value={slot.maxMinutes}
+                      onChange={(v) => updateSlot(slot.id, { maxMinutes: v })}
+                      min={slot.minMinutes}
+                      suffix="min"
+                      width={52}
+                    />
+                  </div>
+                  <div>
+                    <div
+                      style={{
+                        fontSize: 10,
+                        color: "rgba(255,255,255,0.25)",
+                        marginBottom: 4,
+                      }}
+                    >
+                      Max orders
+                    </div>
+                    <NumInput
+                      value={slot.maxOrders}
+                      onChange={(v) => updateSlot(slot.id, { maxOrders: v })}
+                      min={1}
+                      max={50}
+                      width={52}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <NumInput
-                value={slot.minMinutes}
-                onChange={(v) => updateSlot(slot.id, { minMinutes: v })}
-                min={5}
-                suffix="–"
-                width={52}
-              />
-              <NumInput
-                value={slot.maxMinutes}
-                onChange={(v) => updateSlot(slot.id, { maxMinutes: v })}
-                min={slot.minMinutes}
-                suffix="min"
-                width={52}
-              />
-            </div>
-
-            <div>
-              <div
-                style={{
-                  fontSize: 10,
-                  color: "rgba(255,255,255,0.25)",
-                  marginBottom: 4,
-                }}
-              >
-                Max orders
+            {!isTablet && (
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <NumInput
+                  value={slot.minMinutes}
+                  onChange={(v) => updateSlot(slot.id, { minMinutes: v })}
+                  min={5}
+                  suffix="–"
+                  width={52}
+                />
+                <NumInput
+                  value={slot.maxMinutes}
+                  onChange={(v) => updateSlot(slot.id, { maxMinutes: v })}
+                  min={slot.minMinutes}
+                  suffix="min"
+                  width={52}
+                />
               </div>
-              <NumInput
-                value={slot.maxOrders}
-                onChange={(v) => updateSlot(slot.id, { maxOrders: v })}
-                min={1}
-                max={50}
-                width={52}
-              />
-            </div>
+            )}
+
+            {!isTablet && (
+              <div>
+                <div
+                  style={{
+                    fontSize: 10,
+                    color: "rgba(255,255,255,0.25)",
+                    marginBottom: 4,
+                  }}
+                >
+                  Max orders
+                </div>
+                <NumInput
+                  value={slot.maxOrders}
+                  onChange={(v) => updateSlot(slot.id, { maxOrders: v })}
+                  min={1}
+                  max={50}
+                  width={52}
+                />
+              </div>
+            )}
 
             {/* Remove button */}
             <button
@@ -923,6 +999,8 @@ function PickupTab() {
    ═══════════════════════════════════════════════════════════ */
 
 function PromoTab() {
+  const isMobile = useIsMobile();
+  const isTablet = useIsTablet();
   const [promos, setPromos] = useState<PromoCode[]>([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState("");
@@ -1153,9 +1231,11 @@ function PromoTab() {
                 key={p.id}
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "48px 1fr 160px 100px 80px",
-                  alignItems: "center",
-                  gap: 14,
+                  gridTemplateColumns: isTablet
+                    ? "48px 1fr"
+                    : "48px 1fr 160px 100px 80px",
+                  alignItems: isTablet ? "start" : "center",
+                  gap: isTablet ? 10 : 14,
                   padding: "16px 18px",
                   background: "rgba(255,255,255,0.025)",
                   border: `1px solid ${
@@ -1268,103 +1348,207 @@ function PromoTab() {
                         year: "numeric",
                       })}`}
                   </div>
-                </div>
 
-                {/* Usage bar */}
-                <div>
-                  <div
-                    style={{
-                      fontSize: 11,
-                      color: "rgba(255,255,255,0.4)",
-                      marginBottom: 5,
-                    }}
-                  >
-                    {p.usageCount}
-                    {p.usageLimit ? ` / ${p.usageLimit}` : ""} used
-                  </div>
-                  {usagePercent !== null && (
-                    <div
-                      style={{
-                        height: 4,
-                        background: "rgba(255,255,255,0.06)",
-                        borderRadius: 2,
-                        overflow: "hidden",
-                      }}
-                    >
-                      <div
+                  {isTablet && (
+                    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, marginTop: 10 }}>
+                      {/* Usage bar */}
+                      <div style={{ flex: "1 1 140px" }}>
+                        <div
+                          style={{
+                            fontSize: 11,
+                            color: "rgba(255,255,255,0.4)",
+                            marginBottom: 5,
+                          }}
+                        >
+                          {p.usageCount}
+                          {p.usageLimit ? ` / ${p.usageLimit}` : ""} used
+                        </div>
+                        {usagePercent !== null && (
+                          <div
+                            style={{
+                              height: 4,
+                              background: "rgba(255,255,255,0.06)",
+                              borderRadius: 2,
+                              overflow: "hidden",
+                            }}
+                          >
+                            <div
+                              style={{
+                                height: "100%",
+                                width: `${Math.min(usagePercent, 100)}%`,
+                                background:
+                                  usagePercent > 80
+                                    ? "#F87171"
+                                    : "#C9A050",
+                                borderRadius: 2,
+                                transition: "width 0.3s",
+                              }}
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Estimated discount given */}
+                      <div>
+                        <div
+                          style={{
+                            fontSize: 13,
+                            fontWeight: 600,
+                            fontFamily: "'DM Mono', monospace",
+                            color: "#fff",
+                          }}
+                        >
+                          $
+                          {Math.round(
+                            p.usageCount *
+                              (p.type === "percent"
+                                ? p.value * 0.6
+                                : p.value)
+                          )}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 10,
+                            color: "rgba(255,255,255,0.2)",
+                          }}
+                        >
+                          discounted
+                        </div>
+                      </div>
+
+                      {/* Delete */}
+                      <button
+                        onClick={() => deletePromo(p.id, p.code)}
                         style={{
-                          height: "100%",
-                          width: `${Math.min(usagePercent, 100)}%`,
-                          background:
-                            usagePercent > 80
-                              ? "#F87171"
-                              : "#C9A050",
-                          borderRadius: 2,
-                          transition: "width 0.3s",
+                          background: "none",
+                          border: "1px solid rgba(255,255,255,0.08)",
+                          borderRadius: 6,
+                          padding: "5px 12px",
+                          color: "rgba(255,255,255,0.25)",
+                          fontSize: 11,
+                          cursor: "pointer",
+                          fontFamily: "var(--font-body)",
+                          transition: "all 0.15s",
                         }}
-                      />
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.borderColor =
+                            "rgba(248,113,113,0.35)";
+                          e.currentTarget.style.color = "#F87171";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.borderColor =
+                            "rgba(255,255,255,0.08)";
+                          e.currentTarget.style.color =
+                            "rgba(255,255,255,0.25)";
+                        }}
+                      >
+                        Delete
+                      </button>
                     </div>
                   )}
                 </div>
 
-                {/* Estimated discount given */}
-                <div style={{ textAlign: "right" }}>
-                  <div
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 600,
-                      fontFamily: "'DM Mono', monospace",
-                      color: "#fff",
-                    }}
-                  >
-                    $
-                    {Math.round(
-                      p.usageCount *
-                        (p.type === "percent"
-                          ? p.value * 0.6
-                          : p.value)
+                {/* Usage bar - desktop only */}
+                {!isTablet && (
+                  <div>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: "rgba(255,255,255,0.4)",
+                        marginBottom: 5,
+                      }}
+                    >
+                      {p.usageCount}
+                      {p.usageLimit ? ` / ${p.usageLimit}` : ""} used
+                    </div>
+                    {usagePercent !== null && (
+                      <div
+                        style={{
+                          height: 4,
+                          background: "rgba(255,255,255,0.06)",
+                          borderRadius: 2,
+                          overflow: "hidden",
+                        }}
+                      >
+                        <div
+                          style={{
+                            height: "100%",
+                            width: `${Math.min(usagePercent, 100)}%`,
+                            background:
+                              usagePercent > 80
+                                ? "#F87171"
+                                : "#C9A050",
+                            borderRadius: 2,
+                            transition: "width 0.3s",
+                          }}
+                        />
+                      </div>
                     )}
                   </div>
-                  <div
-                    style={{
-                      fontSize: 10,
-                      color: "rgba(255,255,255,0.2)",
-                    }}
-                  >
-                    discounted
-                  </div>
-                </div>
+                )}
 
-                {/* Delete */}
-                <div style={{ textAlign: "right" }}>
-                  <button
-                    onClick={() => deletePromo(p.id, p.code)}
-                    style={{
-                      background: "none",
-                      border: "1px solid rgba(255,255,255,0.08)",
-                      borderRadius: 6,
-                      padding: "5px 12px",
-                      color: "rgba(255,255,255,0.25)",
-                      fontSize: 11,
-                      cursor: "pointer",
-                      fontFamily: "var(--font-body)",
-                      transition: "all 0.15s",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor =
-                        "rgba(248,113,113,0.35)";
-                      e.currentTarget.style.color = "#F87171";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor =
-                        "rgba(255,255,255,0.08)";
-                      e.currentTarget.style.color =
-                        "rgba(255,255,255,0.25)";
-                    }}
-                  >
-                    Delete
-                  </button>
-                </div>
+                {/* Estimated discount given - desktop only */}
+                {!isTablet && (
+                  <div style={{ textAlign: "right" }}>
+                    <div
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 600,
+                        fontFamily: "'DM Mono', monospace",
+                        color: "#fff",
+                      }}
+                    >
+                      $
+                      {Math.round(
+                        p.usageCount *
+                          (p.type === "percent"
+                            ? p.value * 0.6
+                            : p.value)
+                      )}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 10,
+                        color: "rgba(255,255,255,0.2)",
+                      }}
+                    >
+                      discounted
+                    </div>
+                  </div>
+                )}
+
+                {/* Delete - desktop only */}
+                {!isTablet && (
+                  <div style={{ textAlign: "right" }}>
+                    <button
+                      onClick={() => deletePromo(p.id, p.code)}
+                      style={{
+                        background: "none",
+                        border: "1px solid rgba(255,255,255,0.08)",
+                        borderRadius: 6,
+                        padding: "5px 12px",
+                        color: "rgba(255,255,255,0.25)",
+                        fontSize: 11,
+                        cursor: "pointer",
+                        fontFamily: "var(--font-body)",
+                        transition: "all 0.15s",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.borderColor =
+                          "rgba(248,113,113,0.35)";
+                        e.currentTarget.style.color = "#F87171";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.borderColor =
+                          "rgba(255,255,255,0.08)";
+                        e.currentTarget.style.color =
+                          "rgba(255,255,255,0.25)";
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -1389,6 +1573,8 @@ const TABS = [
 type TabKey = (typeof TABS)[number]["key"];
 
 export default function SettingsPage() {
+  const isMobile = useIsMobile();
+  const isTablet = useIsTablet();
   const [activeTab, setActiveTab] = useState<TabKey>("hours");
 
   const now = new Date();
@@ -1412,7 +1598,7 @@ export default function SettingsPage() {
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          padding: "0 28px",
+          padding: isTablet ? "0 16px" : "0 28px",
           height: 60,
           borderBottom: "1px solid rgba(255,255,255,0.06)",
           background: "rgba(255,255,255,0.02)",
@@ -1470,7 +1656,7 @@ export default function SettingsPage() {
       <div
         style={{
           flex: 1,
-          padding: "28px 32px 40px",
+          padding: isTablet ? "20px 16px 32px" : "28px 32px 40px",
           width: "100%",
         }}
       >
@@ -1478,12 +1664,14 @@ export default function SettingsPage() {
         <div
           style={{
             display: "inline-flex",
+            flexWrap: isMobile ? "wrap" : "nowrap",
             background: "rgba(255,255,255,0.025)",
             border: "1px solid rgba(255,255,255,0.06)",
             borderRadius: 10,
             padding: 4,
             gap: 2,
             marginBottom: 28,
+            width: isMobile ? "100%" : "auto",
           }}
         >
           {TABS.map((tab) => {
@@ -1508,6 +1696,9 @@ export default function SettingsPage() {
                   display: "flex",
                   alignItems: "center",
                   gap: 7,
+                  minHeight: 44,
+                  flex: isMobile ? "1 1 auto" : "0 0 auto",
+                  justifyContent: "center",
                 }}
               >
                 <span style={{ fontSize: 14 }}>{tab.icon}</span>

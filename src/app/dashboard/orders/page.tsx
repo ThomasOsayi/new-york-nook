@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useIsMobile, useIsTablet } from "@/hooks/useIsMobile";
 import { db } from "@/lib/firebase";
 import {
   collection,
@@ -614,6 +615,8 @@ function OrderDetail({ order, onStatusChange }: {
    Orders Page
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 export default function OrdersPage() {
+  const isMobile = useIsMobile();
+  const isTablet = useIsTablet();
   const [orders, setOrders] = useState<FirestoreOrder[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filter, setFilter] = useState("active");
@@ -683,7 +686,7 @@ export default function OrdersPage() {
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          padding: "0 28px",
+          padding: isTablet ? "0 16px" : "0 28px",
           height: 60,
           borderBottom: "1px solid rgba(255,255,255,0.06)",
           background: "rgba(255,255,255,0.015)",
@@ -735,9 +738,9 @@ export default function OrdersPage() {
         </div>
       </header>
 
-      <div style={{ padding: "20px 28px" }}>
+      <div style={{ padding: isTablet ? "20px 16px" : "20px 28px" }}>
         {/* ── Stats row ── */}
-        <div style={{ display: "flex", gap: 14, marginBottom: 24 }}>
+        <div className="dash-stats-row" style={{ display: "flex", gap: 14, marginBottom: 24 }}>
           <StatCard
             label="Active Orders"
             value={activeOrders.length}
@@ -759,7 +762,7 @@ export default function OrdersPage() {
         </div>
 
         {/* ── Filter tabs ── */}
-        <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
+        <div className="dash-filter-tabs" style={{ display: "flex", gap: 6, marginBottom: 16 }}>
           {FILTER_TABS.map((tab) => {
             const count = orders.filter((o) => tab.statuses.includes(o.status)).length;
             const active = filter === tab.key;
@@ -768,7 +771,8 @@ export default function OrdersPage() {
                 key={tab.key}
                 onClick={() => setFilter(tab.key)}
                 style={{
-                  padding: "7px 14px",
+                  padding: "10px 14px",
+                  minHeight: 44,
                   borderRadius: 8,
                   border: active
                     ? "1px solid rgba(201,160,80,0.25)"
@@ -803,6 +807,7 @@ export default function OrdersPage() {
 
         {/* ── Main grid: list + detail ── */}
         <div
+          className="dash-split-layout"
           style={{
             display: "grid",
             gridTemplateColumns: "1fr 420px",
@@ -889,20 +894,51 @@ export default function OrdersPage() {
             )}
           </div>
 
-          {/* Detail panel */}
-          <div
-            style={{
-              background: "rgba(255,255,255,0.015)",
-              border: "1px solid rgba(255,255,255,0.05)",
-              borderRadius: 14,
-              overflow: "hidden",
-              maxHeight: "calc(100vh - 280px)",
-            }}
-          >
-            <OrderDetail order={selected} onStatusChange={handleStatusChange} />
-          </div>
+          {/* Detail panel (desktop only) */}
+          {!isTablet && (
+            <div
+              style={{
+                background: "rgba(255,255,255,0.015)",
+                border: "1px solid rgba(255,255,255,0.05)",
+                borderRadius: 14,
+                overflow: "hidden",
+                maxHeight: "calc(100vh - 280px)",
+              }}
+            >
+              <OrderDetail order={selected} onStatusChange={handleStatusChange} />
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Detail panel (mobile/tablet overlay) */}
+      {isTablet && selected && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 50, background: "rgba(8,6,3,0.98)", overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
+          <button
+            onClick={() => setSelectedId(null)}
+            style={{
+              position: "sticky",
+              top: 0,
+              zIndex: 10,
+              width: "100%",
+              padding: "16px 20px",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              background: "rgba(8,6,3,0.98)",
+              borderBottom: "1px solid rgba(255,255,255,0.06)",
+              border: "none",
+              cursor: "pointer",
+              color: "#C9A050",
+              fontSize: 13,
+              fontFamily: "var(--font-body)",
+            }}
+          >
+            &larr; Back to Orders
+          </button>
+          <OrderDetail order={selected} onStatusChange={handleStatusChange} />
+        </div>
+      )}
 
       {/* Pulse animation for live dot */}
       <style>{`

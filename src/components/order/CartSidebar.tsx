@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useCart, type CartItem } from "@/components/order/Cartcontext";
@@ -28,6 +28,9 @@ export default function CartSidebar() {
   const [showInstructions, setShowInstructions] = useState(false);
   const [promoInput, setPromoInput] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const touchStartY = useRef(0);
+  const touchDeltaY = useRef(0);
 
   const totalItems = items.reduce((sum: number, i: CartItem) => sum + i.qty, 0);
   const subtotal = items.reduce((sum: number, i: CartItem) => sum + i.price * i.qty, 0);
@@ -69,6 +72,19 @@ export default function CartSidebar() {
 
       <aside
         className={`order-cart-sidebar ${mobileOpen ? "cart-open" : ""}`}
+        onTouchStart={(e) => {
+          touchStartY.current = e.touches[0].clientY;
+          touchDeltaY.current = 0;
+        }}
+        onTouchMove={(e) => {
+          touchDeltaY.current = e.touches[0].clientY - touchStartY.current;
+        }}
+        onTouchEnd={() => {
+          if (touchDeltaY.current > 80) {
+            setMobileOpen(false);
+          }
+          touchDeltaY.current = 0;
+        }}
         style={{
           position: "sticky",
           top: 76,
@@ -361,6 +377,7 @@ export default function CartSidebar() {
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <button
+                      className="cart-qty-btn"
                       aria-label="Decrease quantity"
                       onClick={() => {
                         if (item.qty <= 1) removeItem(item.name, item.categoryKey);
@@ -391,6 +408,7 @@ export default function CartSidebar() {
                       {item.qty}
                     </span>
                     <button
+                      className="cart-qty-btn"
                       aria-label="Increase quantity"
                       onClick={() => updateQty(item.name, item.categoryKey, item.qty + 1)}
                       style={cartQtyBtnStyle}
@@ -432,7 +450,8 @@ export default function CartSidebar() {
                       marginTop: 6,
                       transition: "color 0.2s",
                       letterSpacing: 0.5,
-                      minHeight: 28,
+                      minHeight: 44,
+                      padding: "8px 12px",
                     }}
                     onMouseEnter={(e) => (e.currentTarget.style.color = "#a85454")}
                     onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.15)")}
@@ -824,6 +843,9 @@ export default function CartSidebar() {
             transform: translateY(0) !important;
           }
         }
+        @media (hover: none) and (pointer: coarse) {
+          .cart-qty-btn:active { background: rgba(201,160,80,0.15) !important; }
+        }
       `}</style>
     </>
   );
@@ -831,8 +853,8 @@ export default function CartSidebar() {
 
 /* ── Shared styles ── */
 const cartQtyBtnStyle: React.CSSProperties = {
-  width: 28,
-  height: 28,
+  width: 34,
+  height: 34,
   borderRadius: 6,
   border: "1px solid rgba(255,255,255,0.06)",
   background: "transparent",
@@ -845,8 +867,8 @@ const cartQtyBtnStyle: React.CSSProperties = {
   fontWeight: 600,
   fontFamily: "var(--font-body)",
   transition: "all 0.2s",
-  minWidth: 28,
-  minHeight: 28,
+  minWidth: 34,
+  minHeight: 34,
 };
 
 const totalRowStyle: React.CSSProperties = {

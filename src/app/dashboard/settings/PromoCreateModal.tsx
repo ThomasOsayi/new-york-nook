@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { db } from "@/lib/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { useIsMobile, useIsTablet } from "@/hooks/useIsMobile";
 
 /* ═══════════════════════════════════════════════════════════
    PROMO CREATE MODAL — Stepped Wizard (3 steps)
@@ -90,6 +91,9 @@ export default function PromoCreateModal({
   onCreated,
   existingCodes,
 }: Props) {
+  const isMobile = useIsMobile();
+  const isTablet = useIsTablet();
+
   /* ── State ── */
   const [step, setStep] = useState(1);
   const [code, setCode] = useState("");
@@ -192,7 +196,7 @@ export default function PromoCreateModal({
           border: "1px solid rgba(201,160,80,0.15)",
           borderRadius: 18,
           width: "100%",
-          maxWidth: 500,
+          maxWidth: isTablet ? "calc(100vw - 32px)" : 500,
           color: "#fff",
           fontFamily: "var(--font-body)",
           animation: "fadeUp 0.25s cubic-bezier(0.22,1,0.36,1)",
@@ -248,6 +252,8 @@ export default function PromoCreateModal({
                 borderRadius: 8,
                 width: 32,
                 height: 32,
+                minWidth: 44,
+                minHeight: 44,
                 color: "rgba(255,255,255,0.4)",
                 fontSize: 18,
                 cursor: "pointer",
@@ -292,7 +298,9 @@ export default function PromoCreateModal({
         {/* ── Body ── */}
         <div
           style={{
-            padding: "24px 28px 28px",
+            padding: isTablet ? "20px 20px 20px" : "24px 28px 28px",
+            maxHeight: "85vh",
+            overflowY: "auto",
           }}
         >
           {/* ─────────────────────────────────────────────
@@ -415,6 +423,7 @@ export default function PromoCreateModal({
                           flexDirection: "column",
                           alignItems: "center",
                           gap: 6,
+                          minHeight: 44,
                         }}
                       >
                         <span style={{ fontSize: 22 }}>
@@ -533,6 +542,7 @@ export default function PromoCreateModal({
                           fontSize: 14,
                           cursor: "pointer",
                           transition: "all 0.15s",
+                          minHeight: 44,
                         }}
                       >
                         {type === "fixed" ? "$" : ""}
@@ -841,6 +851,7 @@ export default function PromoCreateModal({
           <div
             style={{
               display: "flex",
+              flexDirection: isTablet ? "column-reverse" : "row",
               gap: 10,
               marginTop: 24,
             }}
@@ -860,6 +871,7 @@ export default function PromoCreateModal({
                 fontFamily: "var(--font-body)",
                 cursor: "pointer",
                 transition: "all 0.15s",
+                width: isTablet ? "100%" : undefined,
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.borderColor =
@@ -906,6 +918,7 @@ export default function PromoCreateModal({
                       : "not-allowed",
                   transition: "all 0.2s",
                   letterSpacing: 0.3,
+                  width: isTablet ? "100%" : undefined,
                 }}
               >
                 Continue →
@@ -931,6 +944,7 @@ export default function PromoCreateModal({
                   cursor: creating ? "wait" : "pointer",
                   transition: "all 0.2s",
                   letterSpacing: 0.3,
+                  width: isTablet ? "100%" : undefined,
                 }}
               >
                 {creating ? "Creating…" : `Create ${code}`}
@@ -972,6 +986,7 @@ function ChipButton({
         cursor: "pointer",
         transition: "all 0.15s",
         fontFamily: "var(--font-body)",
+        minHeight: 44,
       }}
     >
       {children}
