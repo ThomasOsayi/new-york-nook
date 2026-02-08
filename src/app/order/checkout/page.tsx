@@ -21,7 +21,7 @@ const PACKAGING_FEE = 2;
    ══════════════════════════════════════════ */
 export default function CheckoutPage() {
   const router = useRouter();
-  const { items, clearCart } = useCart();
+  const { items, clearCart, promo } = useCart();
   const scrollY = useScrollY();
   const scrolled = scrollY > 10;
 
@@ -40,23 +40,25 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  /* ── Calculations ── */
+  /* ── Calculations (with promo discount) ── */
   const subtotal = items.reduce((sum: number, i: CartItem) => sum + i.price * i.qty, 0);
-  const tax = subtotal * TAX_RATE;
+  const discount = promo ? promo.discount : 0;
+  const discountedSubtotal = subtotal - discount;
+  const tax = discountedSubtotal * TAX_RATE;
   const totalItems = items.reduce((sum: number, i: CartItem) => sum + i.qty, 0);
 
   const tipOptions = [
-    { pct: 15, amt: subtotal * 0.15 },
-    { pct: 18, amt: subtotal * 0.18 },
-    { pct: 20, amt: subtotal * 0.20 },
-    { pct: 25, amt: subtotal * 0.25 },
+    { pct: 15, amt: discountedSubtotal * 0.15 },
+    { pct: 18, amt: discountedSubtotal * 0.18 },
+    { pct: 20, amt: discountedSubtotal * 0.20 },
+    { pct: 25, amt: discountedSubtotal * 0.25 },
   ];
 
   const tipAmount = showCustomTip
     ? parseFloat(customTipValue) || 0
     : tipOptions[tipIndex]?.amt ?? 0;
 
-  const total = subtotal + tax + (items.length > 0 ? PACKAGING_FEE : 0) + tipAmount;
+  const total = discountedSubtotal + tax + (items.length > 0 ? PACKAGING_FEE : 0) + tipAmount;
 
   /* ── Submit handler ── */
   const handlePlaceOrder = async () => {
@@ -84,6 +86,10 @@ export default function CheckoutPage() {
           categoryKey: i.categoryKey,
         })),
         subtotal,
+        discount,
+        promoCode: promo ? promo.code : undefined,
+        promoType: promo ? promo.type : undefined,
+        promoValue: promo ? promo.value : undefined,
         tax,
         packagingFee: PACKAGING_FEE,
         tip: tipAmount,
@@ -632,6 +638,14 @@ export default function CheckoutPage() {
             }}
           >
             <TotalRow label="Subtotal" value={`$${subtotal.toFixed(2)}`} />
+            {/* Discount row */}
+            {promo && (
+              <TotalRow
+                label={`Discount (${promo.type === "percent" ? `${promo.value}%` : `$${promo.value}`})`}
+                value={`−$${promo.discount.toFixed(2)}`}
+                color="#4ADE80"
+              />
+            )}
             <TotalRow label="Tax (9.5%)" value={`$${tax.toFixed(2)}`} />
             <TotalRow label="Packaging" value={`$${PACKAGING_FEE.toFixed(2)}`} />
             <TotalRow label={`Tip (${showCustomTip ? "Custom" : `${tipOptions[tipIndex].pct}%`})`} value={`$${tipAmount.toFixed(2)}`} highlight />
@@ -882,7 +896,7 @@ function CardIcon({ label }: { label: string }) {
 }
 
 /* ── Total row ── */
-function TotalRow({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+function TotalRow({ label, value, highlight, color }: { label: string; value: string; highlight?: boolean; color?: string }) {
   return (
     <div
       style={{
@@ -891,12 +905,12 @@ function TotalRow({ label, value, highlight }: { label: string; value: string; h
         marginBottom: 8,
         fontFamily: "var(--font-body)",
         fontSize: 13,
-        color: "rgba(255,255,255,0.4)",
+        color: color || "rgba(255,255,255,0.4)",
         fontWeight: 300,
       }}
     >
       <span>{label}</span>
-      <span style={{ color: highlight ? "#E8D5A3" : "#fff", fontWeight: 500 }}>{value}</span>
+      <span style={{ color: color || (highlight ? "#E8D5A3" : "#fff"), fontWeight: 500 }}>{value}</span>
     </div>
   );
 }

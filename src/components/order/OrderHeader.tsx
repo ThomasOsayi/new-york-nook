@@ -21,6 +21,8 @@ export default function OrderHeader() {
         backdropFilter: "blur(24px) saturate(1.4)",
         borderBottom: `1px solid rgba(183,143,82,${scrolled ? 0.12 : 0.06})`,
         transition: "all 0.5s cubic-bezier(0.22,1,0.36,1)",
+        paddingLeft: "env(safe-area-inset-left)",
+        paddingRight: "env(safe-area-inset-right)",
       }}
     >
       <div
@@ -28,20 +30,28 @@ export default function OrderHeader() {
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          height: 76,
+          height: "clamp(60px, 8vw, 76px)",
           maxWidth: 1440,
           margin: "0 auto",
-          padding: "0 clamp(20px,4vw,48px)",
+          padding: "0 clamp(12px, 3vw, 48px)",
         }}
       >
         {/* ── Left: Logo + Back ── */}
-        <div style={{ display: "flex", alignItems: "center", gap: 32 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "clamp(14px, 3vw, 32px)" }}>
           {/* Logo */}
-          <Link href="/" style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 12 }}>
+          <Link
+            href="/"
+            style={{
+              textDecoration: "none",
+              display: "flex",
+              alignItems: "center",
+              gap: "clamp(8px, 1.5vw, 12px)",
+            }}
+          >
             <div
               style={{
-                width: 32,
-                height: 32,
+                width: "clamp(26px, 3.5vw, 32px)",
+                height: "clamp(26px, 3.5vw, 32px)",
                 border: "1px solid rgba(183,143,82,0.5)",
                 display: "flex",
                 alignItems: "center",
@@ -54,7 +64,7 @@ export default function OrderHeader() {
                 style={{
                   transform: "rotate(-45deg)",
                   fontFamily: "var(--font-display)",
-                  fontSize: 14,
+                  fontSize: "clamp(11px, 1.5vw, 14px)",
                   color: "#C9A050",
                   fontWeight: 700,
                 }}
@@ -62,14 +72,14 @@ export default function OrderHeader() {
                 N
               </span>
             </div>
-            <div>
+            <div className="order-logo-text">
               <span
                 style={{
                   fontFamily: "var(--font-display)",
-                  fontSize: 16,
+                  fontSize: "clamp(12px, 1.8vw, 16px)",
                   fontWeight: 700,
                   color: "#fff",
-                  letterSpacing: 2.5,
+                  letterSpacing: "clamp(1.5px, 0.3vw, 2.5px)",
                   display: "block",
                   lineHeight: 1,
                 }}
@@ -91,9 +101,10 @@ export default function OrderHeader() {
             </div>
           </Link>
 
-          {/* Back link */}
+          {/* Back link — arrow always visible, text hides on mobile */}
           <Link
             href="/"
+            aria-label="Back to home"
             style={{
               display: "flex",
               alignItems: "center",
@@ -106,11 +117,26 @@ export default function OrderHeader() {
               color: "rgba(255,255,255,0.45)",
               textDecoration: "none",
               transition: "color 0.3s",
+              minHeight: 44,
+              minWidth: 44,
+              justifyContent: "center",
             }}
-            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = "#C9A050")}
-            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.45)")}
+            onMouseEnter={(e) =>
+              ((e.currentTarget as HTMLElement).style.color = "#C9A050")
+            }
+            onMouseLeave={(e) =>
+              ((e.currentTarget as HTMLElement).style.color =
+                "rgba(255,255,255,0.45)")
+            }
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+            >
               <path d="M19 12H5m0 0l7 7m-7-7l7-7" />
             </svg>
             <span className="order-back-text">Back to Menu</span>
@@ -118,7 +144,7 @@ export default function OrderHeader() {
         </div>
 
         {/* ── Right: Pickup badge + Cart ── */}
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "clamp(8px, 1.5vw, 16px)" }}>
           {/* Pickup badge */}
           <div
             className="order-pickup-badge"
@@ -126,17 +152,25 @@ export default function OrderHeader() {
               display: "flex",
               alignItems: "center",
               gap: 10,
-              padding: "9px 18px",
+              padding: "9px clamp(12px, 1.8vw, 18px)",
               background: "rgba(201,160,80,0.05)",
               border: "1px solid rgba(201,160,80,0.12)",
               borderRadius: 40,
-              fontSize: 12,
+              fontSize: "clamp(10px, 1.3vw, 12px)",
               fontFamily: "var(--font-body)",
               color: "rgba(255,255,255,0.5)",
               letterSpacing: 0.5,
+              whiteSpace: "nowrap",
             }}
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#C9A050" strokeWidth="1.5">
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#C9A050"
+              strokeWidth="1.5"
+            >
               <path d="M12 6v6l4 2" />
               <circle cx="12" cy="12" r="10" />
             </svg>
@@ -146,16 +180,17 @@ export default function OrderHeader() {
 
           {/* Cart button */}
           <button
+            aria-label={`View order, ${totalItems} items`}
             style={{
               display: "flex",
               alignItems: "center",
-              gap: 10,
-              padding: "11px 24px",
+              gap: "clamp(6px, 1vw, 10px)",
+              padding: "clamp(9px, 1.2vw, 11px) clamp(14px, 2.5vw, 24px)",
               background: "linear-gradient(135deg, #C9A050, #B8903E)",
               border: "none",
               borderRadius: 40,
               fontFamily: "var(--font-body)",
-              fontSize: 11,
+              fontSize: "clamp(10px, 1.2vw, 11px)",
               fontWeight: 700,
               letterSpacing: 1.5,
               textTransform: "uppercase",
@@ -163,21 +198,32 @@ export default function OrderHeader() {
               cursor: "pointer",
               transition: "all 0.35s cubic-bezier(0.16,1,0.3,1)",
               boxShadow: "0 4px 20px rgba(201,160,80,0.25)",
+              minHeight: 44,
+              whiteSpace: "nowrap",
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.transform = "translateY(-2px)";
-              e.currentTarget.style.boxShadow = "0 8px 30px rgba(201,160,80,0.35)";
+              e.currentTarget.style.boxShadow =
+                "0 8px 30px rgba(201,160,80,0.35)";
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.transform = "translateY(0)";
-              e.currentTarget.style.boxShadow = "0 4px 20px rgba(201,160,80,0.25)";
+              e.currentTarget.style.boxShadow =
+                "0 4px 20px rgba(201,160,80,0.25)";
             }}
           >
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg
+              width="17"
+              height="17"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
               <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4zM3 6h18" />
               <path d="M16 10a4 4 0 01-8 0" />
             </svg>
-            View Order
+            <span className="order-cart-label">View Order</span>
             {totalItems > 0 && (
               <span
                 style={{
@@ -185,12 +231,13 @@ export default function OrderHeader() {
                   color: "#C9A050",
                   fontSize: 11,
                   fontWeight: 800,
-                  width: 22,
+                  minWidth: 22,
                   height: 22,
                   borderRadius: "50%",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
+                  padding: "0 4px",
                 }}
               >
                 {totalItems}
@@ -204,6 +251,11 @@ export default function OrderHeader() {
       <style>{`
         @media (max-width: 600px) {
           .order-back-text { display: none; }
+          .order-pickup-badge { display: none !important; }
+          .order-cart-label { display: none; }
+          .order-logo-text { display: none; }
+        }
+        @media (min-width: 601px) and (max-width: 900px) {
           .order-pickup-badge { display: none !important; }
         }
       `}</style>

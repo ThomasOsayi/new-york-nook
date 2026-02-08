@@ -11,7 +11,7 @@ export default function OrderHero() {
       ref={ref as React.Ref<HTMLElement>}
       style={{
         position: "relative",
-        height: 280,
+        height: "clamp(200px, 28vw, 280px)",
         overflow: "hidden",
         display: "flex",
         alignItems: "flex-end",
@@ -48,7 +48,10 @@ export default function OrderHero() {
           left: 0,
           right: 0,
           height: 1,
-          background: "linear-gradient(90deg, transparent, rgba(201,160,80,0.2), transparent)",
+          background:
+            "linear-gradient(90deg, transparent, rgba(201,160,80,0.2), transparent)",
+          transform: visible ? "scaleX(1)" : "scaleX(0)",
+          transition: "transform 1s cubic-bezier(0.22,1,0.36,1) 0.2s",
         }}
       />
 
@@ -60,7 +63,8 @@ export default function OrderHero() {
           width: "100%",
           maxWidth: 1440,
           margin: "0 auto",
-          padding: "40px clamp(20px,4vw,48px)",
+          padding:
+            "clamp(24px, 4vw, 40px) clamp(16px, 3vw, 48px)",
           opacity: visible ? 1 : 0,
           transform: visible ? "translateY(0)" : "translateY(24px)",
           transition: "all 0.9s cubic-bezier(0.22,1,0.36,1)",
@@ -70,20 +74,24 @@ export default function OrderHero() {
         <div
           style={{
             fontFamily: "var(--font-body)",
-            fontSize: 10,
+            fontSize: "clamp(8px, 1.2vw, 10px)",
             fontWeight: 600,
-            letterSpacing: 5,
+            letterSpacing: "clamp(3px, 0.6vw, 5px)",
             textTransform: "uppercase",
             color: "#C9A050",
-            marginBottom: 12,
+            marginBottom: "clamp(8px, 1.5vw, 12px)",
             display: "flex",
             alignItems: "center",
             gap: 10,
+            opacity: visible ? 1 : 0,
+            transform: visible ? "translateX(0)" : "translateX(-12px)",
+            transition:
+              "all 0.7s cubic-bezier(0.22,1,0.36,1) 0.15s",
           }}
         >
           <span
             style={{
-              width: 24,
+              width: "clamp(16px, 2.5vw, 24px)",
               height: 1,
               background: "#C9A050",
               display: "inline-block",
@@ -96,11 +104,11 @@ export default function OrderHero() {
         <h1
           style={{
             fontFamily: "var(--font-display)",
-            fontSize: "clamp(36px, 5vw, 52px)",
+            fontSize: "clamp(28px, 5vw, 52px)",
             fontWeight: 400,
             color: "#fff",
             lineHeight: 1.1,
-            margin: "0 0 10px",
+            margin: "0 0 clamp(6px, 1vw, 10px)",
           }}
         >
           Build Your{" "}
@@ -114,16 +122,17 @@ export default function OrderHero() {
           </em>
         </h1>
 
-        {/* Description */}
+        {/* Description — hidden on very small screens to save space */}
         <p
+          className="order-hero-desc"
           style={{
             fontFamily: "var(--font-accent)",
-            fontSize: 15,
+            fontSize: "clamp(13px, 1.5vw, 15px)",
             fontStyle: "italic",
             color: "rgba(255,255,255,0.4)",
             maxWidth: 480,
             lineHeight: 1.7,
-            margin: "0 0 16px",
+            margin: "0 0 clamp(10px, 1.5vw, 16px)",
           }}
         >
           Curated dishes prepared fresh for pickup. Select your favorites and
@@ -135,7 +144,8 @@ export default function OrderHero() {
           style={{
             display: "flex",
             alignItems: "center",
-            gap: 8,
+            gap: "clamp(4px, 0.8vw, 8px)",
+            flexWrap: "wrap",
           }}
         >
           {[...Array(5)].map((_, i) => (
@@ -152,7 +162,7 @@ export default function OrderHero() {
           <span
             style={{
               fontFamily: "var(--font-body)",
-              fontSize: 11,
+              fontSize: "clamp(10px, 1.2vw, 11px)",
               color: "rgba(255,255,255,0.3)",
               letterSpacing: 0.5,
               marginLeft: 4,
@@ -162,6 +172,13 @@ export default function OrderHero() {
           </span>
         </div>
       </div>
+
+      {/* ── Responsive ── */}
+      <style>{`
+        @media (max-width: 480px) {
+          .order-hero-desc { display: none; }
+        }
+      `}</style>
     </section>
   );
 }

@@ -28,17 +28,22 @@ export interface OrderData {
   /* Items & totals */
   items: OrderItem[];
   subtotal: number;
+  discount: number;
   tax: number;
   packagingFee: number;
   tip: number;
   total: number;
+
+  /* Promo */
+  promoCode?: string;
+  promoType?: "percent" | "fixed";
+  promoValue?: number;
 
   /* Pickup */
   pickupTime: string; // e.g. "ASAP (25–35 min)" or "6:30 PM"
 
   /* Special instructions */
   instructions?: string;
-  promoCode?: string;
 
   /* Meta */
   status: "pending" | "confirmed" | "preparing" | "ready" | "picked_up" | "cancelled";

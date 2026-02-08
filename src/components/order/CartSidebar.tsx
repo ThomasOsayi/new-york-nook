@@ -18,6 +18,7 @@ export default function CartSidebar() {
   const [activeTime, setActiveTime] = useState(0);
   const [showInstructions, setShowInstructions] = useState(false);
   const [promo, setPromo] = useState("");
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const totalItems = items.reduce((sum: number, i: CartItem) => sum + i.qty, 0);
   const subtotal = items.reduce((sum: number, i: CartItem) => sum + i.price * i.qty, 0);
@@ -31,590 +32,685 @@ export default function CartSidebar() {
   ];
 
   return (
-    <aside
-      className="order-cart-sidebar"
-      style={{
-        position: "sticky",
-        top: 76,
-        height: "calc(100vh - 76px)",
-        background: "rgb(var(--bg-secondary))",
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden",
-        borderLeft: "1px solid rgba(255,255,255,0.04)",
-      }}
-    >
-      {/* ── Header ── */}
-      <div
+    <>
+      {/* ── Mobile overlay backdrop ── */}
+      {mobileOpen && (
+        <div
+          className="cart-backdrop"
+          onClick={() => setMobileOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            zIndex: 89,
+            display: "none",
+          }}
+        />
+      )}
+
+      <aside
+        className={`order-cart-sidebar ${mobileOpen ? "cart-open" : ""}`}
         style={{
-          padding: "28px 28px 20px",
-          borderBottom: "1px solid rgba(255,255,255,0.04)",
-          background: "linear-gradient(180deg, rgba(201,160,80,0.02) 0%, transparent 100%)",
+          position: "sticky",
+          top: 76,
+          height: "calc(100vh - 76px)",
+          background: "rgb(var(--bg-secondary))",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+          borderLeft: "1px solid rgba(255,255,255,0.04)",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <h2
+        {/* ── Mobile drag handle ── */}
+        <div
+          className="cart-drag-handle"
+          onClick={() => setMobileOpen(!mobileOpen)}
+          style={{
+            display: "none",
+            justifyContent: "center",
+            alignItems: "center",
+            padding: "10px 0 6px",
+            cursor: "pointer",
+          }}
+        >
+          <div
             style={{
-              fontFamily: "var(--font-display)",
-              fontSize: 22,
-              fontWeight: 500,
-              color: "#fff",
-              margin: 0,
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
+              width: 36,
+              height: 4,
+              borderRadius: 2,
+              background: "rgba(255,255,255,0.15)",
             }}
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(183,143,82,0.4)" strokeWidth="1.5">
+          />
+        </div>
+
+        {/* ── Mobile summary bar (visible when collapsed) ── */}
+        <div
+          className="cart-mobile-summary"
+          onClick={() => setMobileOpen(true)}
+          style={{
+            display: "none",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "0 clamp(16px, 3vw, 28px)",
+            height: 64,
+            cursor: "pointer",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C9A050" strokeWidth="1.5">
               <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4zM3 6h18" />
               <path d="M16 10a4 4 0 01-8 0" />
             </svg>
-            Your Order
-          </h2>
+            <span style={{ fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 600, color: "#fff" }}>
+              {totalItems > 0 ? `${totalItems} item${totalItems !== 1 ? "s" : ""}` : "Your Order"}
+            </span>
+          </div>
           {totalItems > 0 && (
-            <span
-              style={{
-                background: "linear-gradient(135deg, #C9A050, #B8903E)",
-                color: "rgb(var(--bg-primary))",
-                fontSize: 11,
-                fontWeight: 800,
-                padding: "3px 12px",
-                borderRadius: 20,
-                fontFamily: "var(--font-body)",
-              }}
-            >
-              {totalItems} {totalItems === 1 ? "item" : "items"}
+            <span style={{ fontFamily: "var(--font-accent)", fontSize: 18, fontWeight: 700, color: "#C9A050" }}>
+              ${total.toFixed(2)}
             </span>
           )}
         </div>
-        <p
-          style={{
-            fontFamily: "var(--font-body)",
-            fontSize: 12,
-            color: "rgba(255,255,255,0.2)",
-            margin: "4px 0 0",
-            fontWeight: 300,
-          }}
-        >
-          {items.length > 0 ? "Review your selections before checkout" : "Add items to get started"}
-        </p>
-      </div>
 
-      {/* ── Pickup Time ── */}
-      <div style={{ padding: "18px 28px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+        {/* ── Header ── */}
         <div
+          className="cart-header"
           style={{
-            fontFamily: "var(--font-body)",
-            fontSize: 10,
-            fontWeight: 600,
-            letterSpacing: 2.5,
-            textTransform: "uppercase",
-            color: "rgba(255,255,255,0.2)",
-            marginBottom: 12,
+            padding: "clamp(18px, 3vw, 28px) clamp(16px, 3vw, 28px) clamp(14px, 2vw, 20px)",
+            borderBottom: "1px solid rgba(255,255,255,0.04)",
+            background: "linear-gradient(180deg, rgba(201,160,80,0.02) 0%, transparent 100%)",
           }}
         >
-          Pickup Time
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          {timeOptions.map((opt, i) => (
-            <button
-              key={i}
-              onClick={() => setActiveTime(i)}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <h2
               style={{
-                flex: 1,
-                padding: "10px 10px",
-                border: `1px solid ${activeTime === i ? "rgba(201,160,80,0.5)" : "rgba(255,255,255,0.05)"}`,
-                borderRadius: 10,
-                background: activeTime === i ? "rgba(201,160,80,0.06)" : "transparent",
-                boxShadow: activeTime === i ? "0 0 16px rgba(201,160,80,0.04)" : "none",
-                cursor: "pointer",
-                textAlign: "center",
-                transition: "all 0.3s",
-                fontFamily: "var(--font-body)",
-              }}
-            >
-              <span
-                style={{
-                  fontSize: 10,
-                  letterSpacing: 0.5,
-                  textTransform: "uppercase",
-                  fontWeight: 600,
-                  color: "rgba(255,255,255,0.35)",
-                  display: "block",
-                }}
-              >
-                {opt.label}
-              </span>
-              <span
-                style={{
-                  fontSize: 14,
-                  fontWeight: 600,
-                  color: activeTime === i ? "#C9A050" : "#fff",
-                  marginTop: 3,
-                  display: "block",
-                  letterSpacing: 0,
-                }}
-              >
-                {opt.value}
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* ── Cart Items (scrollable) ── */}
-      <div
-        style={{
-          flex: 1,
-          overflowY: "auto",
-          padding: "8px 28px",
-          scrollbarWidth: "thin",
-          scrollbarColor: "rgba(255,255,255,0.06) transparent",
-        }}
-      >
-        {items.length === 0 ? (
-          /* Empty state */
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              height: "100%",
-              padding: "40px 20px",
-              textAlign: "center",
-            }}
-          >
-            <svg
-              width="48"
-              height="48"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="rgba(255,255,255,0.08)"
-              strokeWidth="1"
-              style={{ marginBottom: 20 }}
-            >
-              <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4zM3 6h18" />
-              <path d="M16 10a4 4 0 01-8 0" />
-            </svg>
-            <p
-              style={{
-                fontFamily: "var(--font-body)",
-                fontSize: 14,
-                color: "rgba(255,255,255,0.15)",
-                fontWeight: 300,
-                lineHeight: 1.7,
-              }}
-            >
-              Your order is empty.
-              <br />
-              Browse the menu and add items.
-            </p>
-          </div>
-        ) : (
-          items.map((item: CartItem) => (
-            <div
-              key={`${item.categoryKey}-${item.name}`}
-              style={{
-                display: "grid",
-                gridTemplateColumns: "50px 1fr auto",
-                gap: 14,
-                alignItems: "flex-start",
-                padding: "16px 0",
-                borderBottom: "1px solid rgba(255,255,255,0.04)",
-              }}
-            >
-              {/* Thumbnail */}
-              <div
-                style={{
-                  width: 50,
-                  height: 50,
-                  borderRadius: 10,
-                  overflow: "hidden",
-                  border: "1px solid rgba(255,255,255,0.06)",
-                  flexShrink: 0,
-                  position: "relative",
-                }}
-              >
-                <Image
-                  src={item.img}
-                  alt={item.name}
-                  width={50}
-                  height={50}
-                  style={{ objectFit: "cover" }}
-                />
-              </div>
-
-              {/* Info + qty */}
-              <div style={{ minWidth: 0 }}>
-                <div
-                  style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: 15,
-                    fontWeight: 500,
-                    color: "#fff",
-                    marginBottom: 3,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {item.name}
-                </div>
-                <div
-                  style={{
-                    fontFamily: "var(--font-body)",
-                    fontSize: 11,
-                    color: "rgba(255,255,255,0.2)",
-                    fontWeight: 300,
-                    marginBottom: 8,
-                  }}
-                >
-                  {catLabelMap[item.categoryKey] ?? ""}
-                </div>
-                {/* Qty controls */}
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <button
-                    onClick={() => {
-                      if (item.qty <= 1) removeItem(item.name, item.categoryKey);
-                      else updateQty(item.name, item.categoryKey, item.qty - 1);
-                    }}
-                    style={cartQtyBtnStyle}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = "rgba(183,143,82,0.3)";
-                      e.currentTarget.style.color = "#C9A050";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)";
-                      e.currentTarget.style.color = "rgba(255,255,255,0.45)";
-                    }}
-                  >
-                    −
-                  </button>
-                  <span
-                    style={{
-                      fontFamily: "var(--font-body)",
-                      fontSize: 13,
-                      fontWeight: 700,
-                      color: "#fff",
-                      minWidth: 14,
-                      textAlign: "center",
-                    }}
-                  >
-                    {item.qty}
-                  </span>
-                  <button
-                    onClick={() => updateQty(item.name, item.categoryKey, item.qty + 1)}
-                    style={cartQtyBtnStyle}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = "rgba(183,143,82,0.3)";
-                      e.currentTarget.style.color = "#C9A050";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)";
-                      e.currentTarget.style.color = "rgba(255,255,255,0.45)";
-                    }}
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-
-              {/* Price + remove */}
-              <div style={{ textAlign: "right" }}>
-                <div
-                  style={{
-                    fontFamily: "var(--font-accent)",
-                    fontSize: 18,
-                    fontWeight: 600,
-                    color: "#C9A050",
-                  }}
-                >
-                  ${(item.price * item.qty).toFixed(0)}
-                </div>
-                <button
-                  onClick={() => removeItem(item.name, item.categoryKey)}
-                  style={{
-                    fontFamily: "var(--font-body)",
-                    fontSize: 10,
-                    color: "rgba(255,255,255,0.15)",
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    marginTop: 6,
-                    transition: "color 0.2s",
-                    letterSpacing: 0.5,
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = "#a85454")}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.15)")}
-                >
-                  Remove
-                </button>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-
-      {/* ── Promo Code ── */}
-      {items.length > 0 && (
-        <div style={{ padding: "0 28px 14px" }}>
-          <div style={{ display: "flex", gap: 8 }}>
-            <input
-              type="text"
-              placeholder="Promo code"
-              value={promo}
-              onChange={(e) => setPromo(e.target.value)}
-              style={{
-                flex: 1,
-                padding: "10px 14px",
-                background: "rgb(var(--bg-primary))",
-                border: "1px solid rgba(255,255,255,0.05)",
-                borderRadius: 8,
-                fontFamily: "var(--font-body)",
-                fontSize: 12,
+                fontFamily: "var(--font-display)",
+                fontSize: "clamp(18px, 2.5vw, 22px)",
+                fontWeight: 500,
                 color: "#fff",
-                outline: "none",
-                transition: "border-color 0.3s",
-              }}
-              onFocus={(e) => (e.currentTarget.style.borderColor = "rgba(183,143,82,0.2)")}
-              onBlur={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.05)")}
-            />
-            <button
-              style={{
-                padding: "10px 16px",
-                background: "rgb(var(--bg-elevated))",
-                border: "1px solid rgba(255,255,255,0.06)",
-                borderRadius: 8,
-                fontFamily: "var(--font-body)",
-                fontSize: 11,
-                fontWeight: 600,
-                letterSpacing: 1,
-                textTransform: "uppercase",
-                color: "rgba(255,255,255,0.4)",
-                cursor: "pointer",
-                transition: "all 0.2s",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = "rgba(183,143,82,0.3)";
-                e.currentTarget.style.color = "#C9A050";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)";
-                e.currentTarget.style.color = "rgba(255,255,255,0.4)";
+                margin: 0,
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
               }}
             >
-              Apply
-            </button>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(183,143,82,0.4)" strokeWidth="1.5">
+                <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4zM3 6h18" />
+                <path d="M16 10a4 4 0 01-8 0" />
+              </svg>
+              Your Order
+            </h2>
+            {totalItems > 0 && (
+              <span
+                style={{
+                  background: "linear-gradient(135deg, #C9A050, #B8903E)",
+                  color: "rgb(var(--bg-primary))",
+                  fontSize: 11,
+                  fontWeight: 800,
+                  padding: "3px 12px",
+                  borderRadius: 20,
+                  fontFamily: "var(--font-body)",
+                }}
+              >
+                {totalItems} {totalItems === 1 ? "item" : "items"}
+              </span>
+            )}
           </div>
-        </div>
-      )}
-
-      {/* ── Special Instructions ── */}
-      {items.length > 0 && (
-        <div style={{ padding: "0 28px 14px" }}>
-          <button
-            onClick={() => setShowInstructions(!showInstructions)}
+          <p
             style={{
               fontFamily: "var(--font-body)",
-              fontSize: 11,
+              fontSize: 12,
               color: "rgba(255,255,255,0.2)",
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              fontWeight: 500,
-              transition: "color 0.2s",
-              padding: 0,
+              margin: "4px 0 0",
+              fontWeight: 300,
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.4)")}
-            onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.2)")}
           >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-              {showInstructions ? <path d="M5 12h14" /> : <path d="M12 5v14m-7-7h14" />}
-            </svg>
-            {showInstructions ? "Hide special instructions" : "Add special instructions"}
-          </button>
-          {showInstructions && (
-            <textarea
-              placeholder="Allergies, dietary needs, special requests..."
-              style={{
-                width: "100%",
-                marginTop: 10,
-                padding: 12,
-                background: "rgb(var(--bg-primary))",
-                border: "1px solid rgba(255,255,255,0.05)",
-                borderRadius: 10,
-                fontFamily: "var(--font-body)",
-                fontSize: 12,
-                color: "#fff",
-                resize: "none",
-                height: 60,
-                outline: "none",
-                transition: "border-color 0.3s",
-              }}
-              onFocus={(e) => (e.currentTarget.style.borderColor = "rgba(183,143,82,0.2)")}
-              onBlur={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.05)")}
-            />
-          )}
+            {items.length > 0 ? "Review your selections before checkout" : "Add items to get started"}
+          </p>
         </div>
-      )}
 
-      {/* ── Totals & Checkout ── */}
-      <div
-        style={{
-          padding: "18px 28px 24px",
-          borderTop: "1px solid rgba(255,255,255,0.04)",
-          background: "linear-gradient(180deg, transparent 0%, rgba(201,160,80,0.015) 100%)",
-        }}
-      >
-        {items.length > 0 ? (
-          <>
-            <div style={totalRowStyle}>
-              <span>Subtotal</span>
-              <span style={{ color: "#fff", fontWeight: 500 }}>${subtotal.toFixed(2)}</span>
-            </div>
-            <div style={totalRowStyle}>
-              <span>Tax (9.5%)</span>
-              <span style={{ color: "#fff", fontWeight: 500 }}>${tax.toFixed(2)}</span>
-            </div>
-            <div style={totalRowStyle}>
-              <span>Packaging</span>
-              <span style={{ color: "#fff", fontWeight: 500 }}>${PACKAGING_FEE.toFixed(2)}</span>
-            </div>
+        {/* ── Pickup Time ── */}
+        <div style={{ padding: "clamp(12px, 2vw, 18px) clamp(16px, 3vw, 28px)", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+          <div
+            style={{
+              fontFamily: "var(--font-body)",
+              fontSize: 10,
+              fontWeight: 600,
+              letterSpacing: 2.5,
+              textTransform: "uppercase",
+              color: "rgba(255,255,255,0.2)",
+              marginBottom: "clamp(8px, 1.2vw, 12px)",
+            }}
+          >
+            Pickup Time
+          </div>
+          <div style={{ display: "flex", gap: "clamp(6px, 0.8vw, 8px)" }}>
+            {timeOptions.map((opt, i) => (
+              <button
+                key={i}
+                onClick={() => setActiveTime(i)}
+                style={{
+                  flex: 1,
+                  padding: "clamp(8px, 1.2vw, 10px)",
+                  border: `1px solid ${activeTime === i ? "rgba(201,160,80,0.5)" : "rgba(255,255,255,0.05)"}`,
+                  borderRadius: 10,
+                  background: activeTime === i ? "rgba(201,160,80,0.06)" : "transparent",
+                  boxShadow: activeTime === i ? "0 0 16px rgba(201,160,80,0.04)" : "none",
+                  cursor: "pointer",
+                  textAlign: "center",
+                  transition: "all 0.3s",
+                  fontFamily: "var(--font-body)",
+                  minHeight: 44,
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 10,
+                    letterSpacing: 0.5,
+                    textTransform: "uppercase",
+                    fontWeight: 600,
+                    color: "rgba(255,255,255,0.35)",
+                    display: "block",
+                  }}
+                >
+                  {opt.label}
+                </span>
+                <span
+                  style={{
+                    fontSize: "clamp(12px, 1.4vw, 14px)",
+                    fontWeight: 600,
+                    color: activeTime === i ? "#C9A050" : "#fff",
+                    marginTop: 3,
+                    display: "block",
+                    letterSpacing: 0,
+                  }}
+                >
+                  {opt.value}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
 
-            {/* Grand total */}
+        {/* ── Cart Items (scrollable) ── */}
+        <div
+          style={{
+            flex: 1,
+            overflowY: "auto",
+            padding: "8px clamp(16px, 3vw, 28px)",
+            scrollbarWidth: "thin",
+            scrollbarColor: "rgba(255,255,255,0.06) transparent",
+            WebkitOverflowScrolling: "touch",
+          }}
+        >
+          {items.length === 0 ? (
+            /* Empty state */
             <div
               style={{
                 display: "flex",
-                justifyContent: "space-between",
+                flexDirection: "column",
                 alignItems: "center",
-                marginTop: 14,
-                paddingTop: 14,
-                borderTop: "1px solid rgba(255,255,255,0.06)",
+                justifyContent: "center",
+                height: "100%",
+                padding: "40px 20px",
+                textAlign: "center",
               }}
             >
-              <span style={{ fontFamily: "var(--font-body)", fontSize: 16, fontWeight: 500, color: "#fff" }}>
-                Total
-              </span>
-              <span
+              <svg
+                width="48"
+                height="48"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="rgba(255,255,255,0.08)"
+                strokeWidth="1"
+                style={{ marginBottom: 20 }}
+              >
+                <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4zM3 6h18" />
+                <path d="M16 10a4 4 0 01-8 0" />
+              </svg>
+              <p
                 style={{
-                  fontFamily: "var(--font-accent)",
-                  fontSize: 26,
-                  fontWeight: 700,
-                  color: "#C9A050",
+                  fontFamily: "var(--font-body)",
+                  fontSize: 14,
+                  color: "rgba(255,255,255,0.15)",
+                  fontWeight: 300,
+                  lineHeight: 1.7,
                 }}
               >
-                ${total.toFixed(2)}
-              </span>
+                Your order is empty.
+                <br />
+                Browse the menu and add items.
+              </p>
             </div>
+          ) : (
+            items.map((item: CartItem) => (
+              <div
+                key={`${item.categoryKey}-${item.name}`}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "50px 1fr auto",
+                  gap: "clamp(10px, 1.5vw, 14px)",
+                  alignItems: "flex-start",
+                  padding: "clamp(12px, 1.8vw, 16px) 0",
+                  borderBottom: "1px solid rgba(255,255,255,0.04)",
+                }}
+              >
+                {/* Thumbnail */}
+                <div
+                  style={{
+                    width: 50,
+                    height: 50,
+                    borderRadius: 10,
+                    overflow: "hidden",
+                    border: "1px solid rgba(255,255,255,0.06)",
+                    flexShrink: 0,
+                    position: "relative",
+                  }}
+                >
+                  <Image
+                    src={item.img}
+                    alt={item.name}
+                    width={50}
+                    height={50}
+                    style={{ objectFit: "cover" }}
+                  />
+                </div>
 
-            {/* Checkout — now a Link */}
-            <Link
-              href="/order/checkout"
-              className="btn-gold-filled"
+                {/* Info + qty */}
+                <div style={{ minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontFamily: "var(--font-display)",
+                      fontSize: "clamp(13px, 1.6vw, 15px)",
+                      fontWeight: 500,
+                      color: "#fff",
+                      marginBottom: 3,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {item.name}
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: "var(--font-body)",
+                      fontSize: 11,
+                      color: "rgba(255,255,255,0.2)",
+                      fontWeight: 300,
+                      marginBottom: 8,
+                    }}
+                  >
+                    {catLabelMap[item.categoryKey] ?? ""}
+                  </div>
+                  {/* Qty controls */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <button
+                      aria-label="Decrease quantity"
+                      onClick={() => {
+                        if (item.qty <= 1) removeItem(item.name, item.categoryKey);
+                        else updateQty(item.name, item.categoryKey, item.qty - 1);
+                      }}
+                      style={cartQtyBtnStyle}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.borderColor = "rgba(183,143,82,0.3)";
+                        e.currentTarget.style.color = "#C9A050";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)";
+                        e.currentTarget.style.color = "rgba(255,255,255,0.45)";
+                      }}
+                    >
+                      −
+                    </button>
+                    <span
+                      style={{
+                        fontFamily: "var(--font-body)",
+                        fontSize: 13,
+                        fontWeight: 700,
+                        color: "#fff",
+                        minWidth: 14,
+                        textAlign: "center",
+                      }}
+                    >
+                      {item.qty}
+                    </span>
+                    <button
+                      aria-label="Increase quantity"
+                      onClick={() => updateQty(item.name, item.categoryKey, item.qty + 1)}
+                      style={cartQtyBtnStyle}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.borderColor = "rgba(183,143,82,0.3)";
+                        e.currentTarget.style.color = "#C9A050";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)";
+                        e.currentTarget.style.color = "rgba(255,255,255,0.45)";
+                      }}
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                {/* Price + remove */}
+                <div style={{ textAlign: "right" }}>
+                  <div
+                    style={{
+                      fontFamily: "var(--font-accent)",
+                      fontSize: "clamp(16px, 2vw, 18px)",
+                      fontWeight: 600,
+                      color: "#C9A050",
+                    }}
+                  >
+                    ${(item.price * item.qty).toFixed(0)}
+                  </div>
+                  <button
+                    onClick={() => removeItem(item.name, item.categoryKey)}
+                    aria-label={`Remove ${item.name}`}
+                    style={{
+                      fontFamily: "var(--font-body)",
+                      fontSize: 10,
+                      color: "rgba(255,255,255,0.15)",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      marginTop: 6,
+                      transition: "color 0.2s",
+                      letterSpacing: 0.5,
+                      minHeight: 28,
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = "#a85454")}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.15)")}
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* ── Promo Code ── */}
+        {items.length > 0 && (
+          <div style={{ padding: "0 clamp(16px, 3vw, 28px) 14px" }}>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                type="text"
+                placeholder="Promo code"
+                value={promo}
+                onChange={(e) => setPromo(e.target.value)}
+                style={{
+                  flex: 1,
+                  padding: "10px 14px",
+                  background: "rgb(var(--bg-primary))",
+                  border: "1px solid rgba(255,255,255,0.05)",
+                  borderRadius: 8,
+                  fontFamily: "var(--font-body)",
+                  fontSize: 16, /* iOS zoom prevention */
+                  color: "#fff",
+                  outline: "none",
+                  transition: "border-color 0.3s",
+                  WebkitAppearance: "none",
+                }}
+                onFocus={(e) => (e.currentTarget.style.borderColor = "rgba(183,143,82,0.2)")}
+                onBlur={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.05)")}
+              />
+              <button
+                style={{
+                  padding: "10px 16px",
+                  background: "rgb(var(--bg-elevated))",
+                  border: "1px solid rgba(255,255,255,0.06)",
+                  borderRadius: 8,
+                  fontFamily: "var(--font-body)",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  letterSpacing: 1,
+                  textTransform: "uppercase",
+                  color: "rgba(255,255,255,0.4)",
+                  cursor: "pointer",
+                  transition: "all 0.2s",
+                  minHeight: 44,
+                  whiteSpace: "nowrap",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = "rgba(183,143,82,0.3)";
+                  e.currentTarget.style.color = "#C9A050";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)";
+                  e.currentTarget.style.color = "rgba(255,255,255,0.4)";
+                }}
+              >
+                Apply
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Special Instructions ── */}
+        {items.length > 0 && (
+          <div style={{ padding: "0 clamp(16px, 3vw, 28px) 14px" }}>
+            <button
+              onClick={() => setShowInstructions(!showInstructions)}
               style={{
-                display: "block",
+                fontFamily: "var(--font-body)",
+                fontSize: 11,
+                color: "rgba(255,255,255,0.2)",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                fontWeight: 500,
+                transition: "color 0.2s",
+                padding: 0,
+                minHeight: 36,
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.4)")}
+              onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.2)")}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                {showInstructions ? <path d="M5 12h14" /> : <path d="M12 5v14m-7-7h14" />}
+              </svg>
+              {showInstructions ? "Hide special instructions" : "Add special instructions"}
+            </button>
+            {showInstructions && (
+              <textarea
+                placeholder="Allergies, dietary needs, special requests..."
+                style={{
+                  width: "100%",
+                  marginTop: 10,
+                  padding: 12,
+                  background: "rgb(var(--bg-primary))",
+                  border: "1px solid rgba(255,255,255,0.05)",
+                  borderRadius: 10,
+                  fontFamily: "var(--font-body)",
+                  fontSize: 16, /* iOS zoom prevention */
+                  color: "#fff",
+                  resize: "none",
+                  height: 60,
+                  outline: "none",
+                  transition: "border-color 0.3s",
+                  WebkitAppearance: "none",
+                }}
+                onFocus={(e) => (e.currentTarget.style.borderColor = "rgba(183,143,82,0.2)")}
+                onBlur={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.05)")}
+              />
+            )}
+          </div>
+        )}
+
+        {/* ── Totals & Checkout ── */}
+        <div
+          style={{
+            padding: "clamp(14px, 2vw, 18px) clamp(16px, 3vw, 28px) clamp(18px, 3vw, 24px)",
+            paddingBottom: "calc(clamp(18px, 3vw, 24px) + env(safe-area-inset-bottom))",
+            borderTop: "1px solid rgba(255,255,255,0.04)",
+            background: "linear-gradient(180deg, transparent 0%, rgba(201,160,80,0.015) 100%)",
+          }}
+        >
+          {items.length > 0 ? (
+            <>
+              <div style={totalRowStyle}>
+                <span>Subtotal</span>
+                <span style={{ color: "#fff", fontWeight: 500 }}>${subtotal.toFixed(2)}</span>
+              </div>
+              <div style={totalRowStyle}>
+                <span>Tax (9.5%)</span>
+                <span style={{ color: "#fff", fontWeight: 500 }}>${tax.toFixed(2)}</span>
+              </div>
+              <div style={totalRowStyle}>
+                <span>Packaging</span>
+                <span style={{ color: "#fff", fontWeight: 500 }}>${PACKAGING_FEE.toFixed(2)}</span>
+              </div>
+
+              {/* Grand total */}
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginTop: 14,
+                  paddingTop: 14,
+                  borderTop: "1px solid rgba(255,255,255,0.06)",
+                }}
+              >
+                <span style={{ fontFamily: "var(--font-body)", fontSize: "clamp(14px, 1.8vw, 16px)", fontWeight: 500, color: "#fff" }}>
+                  Total
+                </span>
+                <span
+                  style={{
+                    fontFamily: "var(--font-accent)",
+                    fontSize: "clamp(22px, 3vw, 26px)",
+                    fontWeight: 700,
+                    color: "#C9A050",
+                  }}
+                >
+                  ${total.toFixed(2)}
+                </span>
+              </div>
+
+              {/* Checkout */}
+              <Link
+                href="/order/checkout"
+                className="btn-gold-filled"
+                style={{
+                  display: "block",
+                  width: "100%",
+                  padding: "clamp(14px, 2vw, 18px)",
+                  marginTop: 16,
+                  borderRadius: 14,
+                  fontSize: 12,
+                  letterSpacing: 2.5,
+                  fontWeight: 800,
+                  boxShadow: "0 6px 24px rgba(201,160,80,0.25)",
+                  textAlign: "center",
+                  textDecoration: "none",
+                  transition: "all 0.3s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "translateY(-2px)";
+                  e.currentTarget.style.boxShadow = "0 12px 36px rgba(201,160,80,0.35)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.boxShadow = "0 6px 24px rgba(201,160,80,0.25)";
+                }}
+              >
+                Proceed to Checkout
+              </Link>
+            </>
+          ) : (
+            <button
+              className="btn-gold-outline"
+              style={{
                 width: "100%",
-                padding: 18,
-                marginTop: 16,
+                padding: "clamp(14px, 2vw, 18px)",
                 borderRadius: 14,
                 fontSize: 12,
                 letterSpacing: 2.5,
-                fontWeight: 800,
-                boxShadow: "0 6px 24px rgba(201,160,80,0.25)",
-                textAlign: "center",
-                textDecoration: "none",
-                transition: "all 0.3s",
+                fontWeight: 600,
+                opacity: 0.4,
+                cursor: "default",
               }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = "translateY(-2px)";
-                e.currentTarget.style.boxShadow = "0 12px 36px rgba(201,160,80,0.35)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = "translateY(0)";
-                e.currentTarget.style.boxShadow = "0 6px 24px rgba(201,160,80,0.25)";
-              }}
+              disabled
             >
-              Proceed to Checkout
-            </Link>
-          </>
-        ) : (
-          <button
-            className="btn-gold-outline"
+              Add Items to Order
+            </button>
+          )}
+
+          {/* Secure note */}
+          <div
             style={{
-              width: "100%",
-              padding: 18,
-              borderRadius: 14,
-              fontSize: 12,
-              letterSpacing: 2.5,
-              fontWeight: 600,
-              opacity: 0.4,
-              cursor: "default",
+              textAlign: "center",
+              fontFamily: "var(--font-body)",
+              fontSize: 10,
+              color: "rgba(255,255,255,0.15)",
+              marginTop: 12,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+              letterSpacing: 0.5,
             }}
-            disabled
           >
-            Add Items to Order
-          </button>
-        )}
-
-        {/* Secure note */}
-        <div
-          style={{
-            textAlign: "center",
-            fontFamily: "var(--font-body)",
-            fontSize: 10,
-            color: "rgba(255,255,255,0.15)",
-            marginTop: 12,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 6,
-            letterSpacing: 0.5,
-          }}
-        >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <rect x="3" y="11" width="18" height="11" rx="2" />
-            <path d="M7 11V7a5 5 0 0110 0v4" />
-          </svg>
-          Secure checkout · SSL encrypted
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <rect x="3" y="11" width="18" height="11" rx="2" />
+              <path d="M7 11V7a5 5 0 0110 0v4" />
+            </svg>
+            Secure checkout · SSL encrypted
+          </div>
         </div>
-      </div>
+      </aside>
 
-      {/* ── Responsive: hide sidebar on mobile ── */}
+      {/* ── Responsive: mobile bottom sheet ── */}
       <style>{`
         @media (max-width: 900px) {
+          .cart-backdrop {
+            display: block !important;
+          }
+          .cart-drag-handle {
+            display: flex !important;
+          }
+          .cart-mobile-summary {
+            display: flex !important;
+          }
           .order-cart-sidebar {
             position: fixed !important;
-            bottom: 0;
-            left: 0;
-            right: 0;
+            bottom: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
             top: auto !important;
             height: auto !important;
-            max-height: 70vh;
-            border-radius: 24px 24px 0 0;
-            border-top: 1px solid rgba(183,143,82,0.15);
-            box-shadow: 0 -20px 60px rgba(0,0,0,0.5);
-            z-index: 90;
-            transform: translateY(calc(100% - 80px));
-            transition: transform 0.5s cubic-bezier(0.22,1,0.36,1);
+            max-height: 85vh !important;
+            border-radius: 20px 20px 0 0 !important;
+            border-top: 1px solid rgba(183,143,82,0.15) !important;
+            border-left: none !important;
+            box-shadow: 0 -20px 60px rgba(0,0,0,0.5) !important;
+            z-index: 90 !important;
+            transform: translateY(calc(100% - 72px)) !important;
+            transition: transform 0.45s cubic-bezier(0.22,1,0.36,1) !important;
           }
-          .order-cart-sidebar:hover,
-          .order-cart-sidebar:focus-within {
-            transform: translateY(0);
+          .order-cart-sidebar.cart-open {
+            transform: translateY(0) !important;
+          }
+          /* When collapsed, hide everything except summary bar + drag handle */
+          .order-cart-sidebar:not(.cart-open) .cart-header,
+          .order-cart-sidebar:not(.cart-open) > div:nth-child(n+4) {
+            /* Content still exists but is off-screen via translateY */
           }
         }
       `}</style>
-    </aside>
+    </>
   );
 }
 
 /* ── Shared styles ── */
 const cartQtyBtnStyle: React.CSSProperties = {
-  width: 24,
-  height: 24,
+  width: 28,
+  height: 28,
   borderRadius: 6,
   border: "1px solid rgba(255,255,255,0.06)",
   background: "transparent",
@@ -627,6 +723,8 @@ const cartQtyBtnStyle: React.CSSProperties = {
   fontWeight: 600,
   fontFamily: "var(--font-body)",
   transition: "all 0.2s",
+  minWidth: 28,
+  minHeight: 28,
 };
 
 const totalRowStyle: React.CSSProperties = {
