@@ -55,7 +55,8 @@ new-york-nook/
     │       ├── checkout/
     │       │   └── page.tsx
     │       └── confirmation/
-    │           └── page.tsx
+    │           ├── page.tsx
+    │           └── ConfirmationContent.tsx
     │
     ├── components/
     │   ├── CateringSection.tsx
@@ -117,7 +118,7 @@ new-york-nook/
 |-------|-------------|
 | **`/`** | Home: single-page site with all sections (Hero, Signature Dishes, Menu, Gallery, Order, Catering, Reservations, Contact, Footer). |
 | **`/order`** | Takeout order flow: menu browser + cart sidebar; add items, set pickup time, special instructions, promo; “Proceed to Checkout” links to `/order/checkout`. |
-| **`/order/checkout`** | Checkout form: customer info (first name, last name, phone, email), order summary, tip (15/18/20/25% or custom), subtotal/tax/packaging/tip/total. Submits order to Firestore via `createOrder`, clears cart, redirects to confirmation. No payment processor (Stripe, etc.) — order is stored only. |
+| **`/order/checkout`** | Checkout form: customer info (first name, last name, phone, email), order summary, tip (15/18/20/25% or custom), subtotal/discount/tax/packaging/tip/total. Submits order to Firestore via `createOrder` (includes discount, promoCode, promoType, promoValue when promo applied), clears cart, redirects to confirmation. No payment processor (Stripe, etc.) — order is stored only. |
 | **`/order/confirmation`** | Order confirmation: expects query `id` (Firestore doc ID) and `order` (order number). Fetches order via `getOrder(orderId)`; shows order number, status, items, totals, pickup time; “Back to Home” / “Order Again”. Loading and error states. |
 | **`/login`** | Staff login: email + password form; `signIn()` from `auth.ts` (Firebase Auth, whitelist `ALLOWED_EMAILS`). On success redirect to `/dashboard`. Error handling for invalid credentials, unauthorized, too-many-requests. |
 | **`/dashboard`** | Redirects to `/dashboard/orders`. |
@@ -144,8 +145,9 @@ new-york-nook/
 - **`page.tsx`** — Home page: single-page layout with section refs and smooth scroll navigation between sections (Hero → SigDishes → Menu → Gallery → Order → Catering → Reserve → Contact → Footer).
 - **`order/layout.tsx`** — Order layout: wraps all `/order/*` routes in `CartProvider` so cart state is shared across order, checkout, and confirmation.
 - **`order/page.tsx`** — Order page at `/order`: two-column layout (Menubrowser + CartSidebar); responsive grid (sidebar becomes bottom sheet on ≤900px).
-- **`order/checkout/page.tsx`** — Checkout at `/order/checkout`: full checkout form and order summary; calls `createOrder()` with cart + customer + tip; redirects to `/order/confirmation?id=...&order=...`.
-- **`order/confirmation/page.tsx`** — Confirmation at `/order/confirmation`: reads `id` and `order` from query; fetches order with `getOrder(id)`; displays order details or error.
+- **`order/checkout/page.tsx`** — Checkout at `/order/checkout`: full checkout form and order summary; calls `createOrder()` with cart + customer + tip + discount/promo (when applied); redirects to `/order/confirmation?id=...&order=...`.
+- **`order/confirmation/page.tsx`** — Confirmation at `/order/confirmation`: wraps content in `Suspense` with loading spinner fallback; renders `ConfirmationContent` (client component that reads `id` and `order` from query, fetches order with `getOrder(id)`, displays order details or error).
+- **`order/confirmation/ConfirmationContent.tsx`** — Client component: reads `id` and `order` from URL search params; fetches order via `getOrder(id)`; shows order number, status, items, totals, pickup time; "Back to Home" / "Order Again". Loading and error states.
 - **`catering/page.tsx`** — Full catering page at `/catering`: hero, services, packages, menu samples, gallery, FAQ; consultation form in modal; submits to `/api/consultation`; success shows reference number.
 - **`login/layout.tsx`** — Passthrough layout (no wrapper).
 - **`login/page.tsx`** — Login form; `signIn()`; redirect to `/dashboard` on success.
@@ -182,11 +184,11 @@ new-york-nook/
 
 | Component | File | What It Does |
 |-----------|------|--------------|
-| **Cart context** | `Cartcontext.tsx` | React context: `CartItem` (name, price, img, categoryKey, desc?, qty); `addItem`, `updateQty`, `removeItem`, `clearCart`; `useCart()` hook. Add/update by name + categoryKey. |
+| **Cart context** | `Cartcontext.tsx` | React context: `CartItem` (name, price, img, categoryKey, desc?, qty); `addItem`, `updateQty`, `removeItem`, `clearCart`; `PromoState` (code, type, value, discount); `promo`, `promoLoading`, `promoError`, `applyPromo(code, subtotal)`, `removePromo()`. Promo codes validated against Firestore `promoCodes` (active, limits, expiry). `useCart()` hook. Add/update by name + categoryKey. |
 | **Order header** | `OrderHeader.tsx` | Sticky header with scroll-based background/blur; logo + “Back to Menu” link to `/`; pickup badge “25–35 min”; “View Order” cart button with item count. Uses `useScrollY`, `useCart`. |
 | **Order hero** | `OrderHero.tsx` | Hero strip with background image, gradient overlay; label “Takeout & Pickup”, title “Build Your Order”, short copy; star rating + “4.9 · 320+ reviews · Open until 11 PM”; `useInView` reveal. |
 | **Menu browser** | `Menubrowser.tsx` | Category tabs from `menu.ts` (Cold Appetizers, Salads, Soups, Hot Appetizers, Main Course, Desserts, Drinks); scrollable menu grid; item cards with image, name, description, price, tags (popular, new, spicy, gf, v); add-to-cart / inline qty stepper; toast on add. Uses `useCart`, `categories`, `menuData`. |
-| **Cart sidebar** | `CartSidebar.tsx` | Sticky sidebar (desktop) / bottom sheet (mobile ≤900px). “Your Order” header + item count; pickup time options (ASAP 25–35 min, Today 6:30 PM, 7:00 PM); scrollable cart list with qty +/- and remove; promo code input + Apply; “Add special instructions” expandable textarea; subtotal, tax 9.5%, packaging $2, total; “Proceed to Checkout” links to `/order/checkout`. Empty state “Add items to get started”. |
+| **Cart sidebar** | `CartSidebar.tsx` | Sticky sidebar (desktop) / bottom sheet (mobile ≤900px). Promo validated via `applyPromo` (Firestore `promoCodes`); applied promo badge with remove. Discount line when promo applied. “Your Order” header + item count; pickup time options (ASAP 25–35 min, Today 6:30 PM, 7:00 PM); scrollable cart list with qty +/- and remove; promo code input + Apply; “Add special instructions” expandable textarea; subtotal, tax 9.5%, packaging $2, total; “Proceed to Checkout” links to `/order/checkout`. Empty state “Add items to get started”. |
 
 ---
 
@@ -197,7 +199,7 @@ new-york-nook/
 | **`auth.ts`** | Firebase Auth: `signIn(email, password)` — whitelist `ALLOWED_EMAILS` (e.g. `nook@gmail.com`); rejects non-whitelisted before/after auth; `signOut()`. Used by login page and dashboard layout. |
 | **`consultation.ts`** | `ConsultationData` interface; `createConsultation(data)` → writes to Firestore `consultations` collection with `status: "new"`; returns `{ id, referenceNumber }` (format `NYN-C-MMDD-XXXX`). Used by `/api/consultation`. Dashboard catering reads and updates status via `updateDoc`. |
 | **`firebase.ts`** | Firebase app init (singleton via `getApps()`); Firestore `db` export. Config from env: `NEXT_PUBLIC_FIREBASE_API_KEY`, `AUTH_DOMAIN`, `PROJECT_ID`, `STORAGE_BUCKET`, `MESSAGING_SENDER_ID`, `APP_ID`, `MEASUREMENT_ID`. Use `.env.local` (gitignored). |
-| **`order.ts`** | Order persistence: `OrderItem`, `OrderData` interfaces; `createOrder(data)` → writes to Firestore `orders` collection, returns `{ id, orderNumber }` (order number format `NYN-MMDD-XXXX`); `getOrder(orderId)` → fetches by doc ID, returns order or null. Dashboard uses Firestore `updateDoc` directly for status changes. |
+| **`order.ts`** | Order persistence: `OrderItem`, `OrderData` interfaces. `OrderData` includes customer, items, subtotal, discount, tax, packagingFee, tip, total, pickupTime, instructions?, promoCode?, discount?, promoType? ("percent" \| "fixed"), promoValue?; status, createdAt, orderNumber. `createOrder(data)` → writes to Firestore `orders` collection, returns `{ id, orderNumber }` (order number format `NYN-MMDD-XXXX`); `getOrder(orderId)` → fetches by doc ID, returns order or null. Dashboard uses Firestore `updateDoc` directly for status changes. |
 
 ---
 
@@ -236,7 +238,7 @@ new-york-nook/
 3. **CartSidebar.tsx** — “Proceed to Checkout” is wired to `/order/checkout`. Done.
 4. **Checkout** — Orders are stored in Firestore only; no payment processor (Stripe, Square, etc.) integrated. Add payment if required.
 5. **Dashboard auth** — `/dashboard` has no middleware or layout guard; anyone can visit. Add `onAuthStateChanged` redirect to `/login` or Next.js middleware if protection needed.
-6. **Dashboard nav** — Inventory, Staff, Analytics, Settings links 404; only Orders page exists.
+6. **Dashboard nav** — All tabs have pages: Orders, Catering, Inventory, Analytics, Settings. No Staff route (optional).
 7. **CateringSection.tsx** — “View Packages” links to `/catering`. “Inquire Now” is placeholder; full form is on `/catering` page.
 8. **ReservationSection.tsx** — Replace mock submit with real backend (OpenTable, Resy, or custom API).
 9. **ContactSection.tsx** — Google Maps embed implemented; placeholder removed.
