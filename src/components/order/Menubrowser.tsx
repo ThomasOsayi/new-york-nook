@@ -26,7 +26,7 @@ function Toast({ message, show }: { message: string; show: boolean }) {
     <div
       style={{
         position: "fixed",
-        bottom: "clamp(90px, 14vw, 30px)",
+        bottom: "clamp(100px, 16vw, 120px)",
         left: "50%",
         transform: `translateX(-50%) translateY(${show ? "0" : "80px"})`,
         background: "rgba(26,21,16,0.95)",
@@ -317,7 +317,7 @@ function MenuItemCard({
           </div>
         )}
 
-        {/* Mobile price — visible only on small screens */}
+        {/* Mobile price + add — visible only on small screens */}
         <div
           className="menu-item-price-mobile"
           style={{
@@ -357,13 +357,13 @@ function MenuItemCard({
                 background: "rgba(201,160,80,0.08)",
                 color: "#C9A050",
                 cursor: "pointer",
-                fontSize: 11,
+                fontSize: 12,
                 fontWeight: 600,
                 fontFamily: "var(--font-body)",
-                letterSpacing: 1,
-                textTransform: "uppercase",
-                transition: "all 0.3s",
-                minHeight: 40,
+                letterSpacing: 0.5,
+                transition: "all 0.2s",
+                minHeight: 36,
+                whiteSpace: "nowrap",
               }}
             >
               + Add
@@ -467,7 +467,7 @@ function CategorySection({
   return (
     <section style={{ padding: "clamp(24px, 4vw, 40px) 0 10px" }}>
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: "clamp(10px, 2vw, 18px)", marginBottom: "clamp(18px, 3vw, 28px)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "clamp(10px, 2vw, 18px)", marginBottom: "clamp(14px, 2.5vw, 28px)" }}>
         <div
           style={{
             width: "clamp(36px, 5vw, 48px)",
@@ -574,11 +574,8 @@ export default function MenuBrowser() {
       .map((cat) => {
         const items = menuData[cat.key] ?? [];
         const filtered = items.filter((item) => {
-          // Hide items marked as "out" (86'd) from customers
           const status = inventoryStatuses[item.name] ?? "available";
           if (status === "86") return false;
-
-          // Apply search filter
           if (q) {
             return (
               item.name.toLowerCase().includes(q) ||
@@ -630,7 +627,7 @@ export default function MenuBrowser() {
           position: "sticky",
           top: 76,
           zIndex: 50,
-          background: "rgba(8,6,3,0.92)",
+          background: "rgba(8,6,3,0.95)",
           backdropFilter: "blur(16px)",
           borderBottom: "1px solid rgba(255,255,255,0.04)",
           padding: "0 clamp(12px, 3vw, 48px)",
@@ -644,6 +641,7 @@ export default function MenuBrowser() {
         {/* "All" tab */}
         <button
           onClick={() => handleTabClick("all")}
+          className={`order-cat-tab ${activeTab === "all" ? "order-cat-tab-active" : ""}`}
           style={tabStyle(activeTab === "all")}
         >
           All <span style={tabCountStyle(activeTab === "all")}>{catCounts.all}</span>
@@ -653,6 +651,7 @@ export default function MenuBrowser() {
           <button
             key={cat.key}
             onClick={() => handleTabClick(cat.key)}
+            className={`order-cat-tab ${activeTab === cat.key ? "order-cat-tab-active" : ""}`}
             style={tabStyle(activeTab === cat.key)}
           >
             {cat.label}{" "}
@@ -662,7 +661,7 @@ export default function MenuBrowser() {
       </nav>
 
       {/* ── Search bar ── */}
-      <div style={{ padding: "clamp(18px, 3vw, 28px) clamp(12px, 3vw, 48px) 0" }}>
+      <div style={{ padding: "clamp(14px, 2.5vw, 28px) clamp(12px, 3vw, 48px) 0" }}>
         <div style={{ position: "relative" }}>
           <svg
             width="18"
@@ -691,7 +690,7 @@ export default function MenuBrowser() {
               border: "1px solid rgba(255,255,255,0.05)",
               borderRadius: 14,
               fontFamily: "var(--font-body)",
-              fontSize: 16, /* 16px prevents iOS zoom */
+              fontSize: 16,
               color: "#fff",
               outline: "none",
               transition: "border-color 0.3s, box-shadow 0.3s",
@@ -739,6 +738,9 @@ export default function MenuBrowser() {
         )}
       </div>
 
+      {/* ── Bottom spacer for mobile cart bar ── */}
+      <div className="menu-bottom-spacer" />
+
       {/* ── Toast ── */}
       <Toast message={toast.message} show={toast.show} />
 
@@ -747,13 +749,43 @@ export default function MenuBrowser() {
         .order-cat-nav::-webkit-scrollbar { display: none; }
         .order-cat-nav { scrollbar-width: none; }
 
+        /* Desktop: no bottom spacer needed */
+        .menu-bottom-spacer { height: 0; }
+
+        /* ── Mobile: pill tabs + bottom spacer ── */
         @media (max-width: 900px) {
-          .order-cat-nav { top: 60px; }
+          /* Sticky nav adjusts for 56px mobile header */
+          .order-cat-nav {
+            top: 56px !important;
+            padding: 10px 16px !important;
+            gap: 8px !important;
+          }
+
+          /* Pill-style tabs on mobile */
+          .order-cat-tab {
+            padding: 8px 16px !important;
+            border-radius: 20px !important;
+            border: 1px solid rgba(255,255,255,0.04) !important;
+            border-bottom: 1px solid rgba(255,255,255,0.04) !important;
+            font-size: 12px !important;
+            letter-spacing: 0.5px !important;
+            min-height: 38px !important;
+            background: transparent !important;
+          }
+          .order-cat-tab-active {
+            background: rgba(201,160,80,0.12) !important;
+            border-color: rgba(201,160,80,0.15) !important;
+          }
+
+          /* Spacer so last items aren't hidden behind fixed cart bar */
+          .menu-bottom-spacer {
+            height: 88px;
+          }
         }
 
         @media (max-width: 520px) {
           .menu-item-card {
-            grid-template-columns: clamp(70px, 20vw, 90px) 1fr !important;
+            grid-template-columns: 80px 1fr !important;
             transform: none !important;
             box-shadow: none !important;
           }
@@ -764,7 +796,7 @@ export default function MenuBrowser() {
             display: flex !important;
           }
           .menu-item-img {
-            min-height: clamp(70px, 20vw, 90px) !important;
+            min-height: 80px !important;
           }
           .menu-item-desc {
             -webkit-line-clamp: 1 !important;
@@ -801,7 +833,7 @@ function tabStyle(active: boolean): React.CSSProperties {
     transition: "all 0.3s",
     whiteSpace: "nowrap",
     fontFamily: "var(--font-body)",
-    fontWeight: 600,
+    fontWeight: active ? 600 : 500,
     minHeight: 44,
   };
 }

@@ -28,7 +28,7 @@ export default function OrderPage() {
 
       {/* ── Responsive override ── */}
       <style>{`
-        @media (max-width: 900px) {
+        @media (max-width: 1024px) {
           .order-layout {
             grid-template-columns: 1fr !important;
           }

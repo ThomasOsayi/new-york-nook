@@ -27,6 +27,7 @@ export default function OrderHeader() {
       }}
     >
       <div
+        className="order-header-inner"
         style={{
           display: "flex",
           alignItems: "center",
@@ -106,6 +107,7 @@ export default function OrderHeader() {
           <Link
             href="/"
             aria-label="Back to home"
+            className="order-back-link"
             style={{
               display: "flex",
               alignItems: "center",
@@ -146,7 +148,7 @@ export default function OrderHeader() {
 
         {/* ── Right: Pickup badge + Cart ── */}
         <div style={{ display: "flex", alignItems: "center", gap: "clamp(8px, 1.5vw, 16px)" }}>
-          {/* Pickup badge */}
+          {/* Pickup badge — desktop only */}
           <div
             className="order-pickup-badge"
             style={{
@@ -179,8 +181,9 @@ export default function OrderHeader() {
             <span style={{ color: "#E8D5A3", fontWeight: 600 }}>25–35 min</span>
           </div>
 
-          {/* Cart button */}
+          {/* Desktop cart button — hidden on mobile */}
           <button
+            className="order-cart-btn-desktop"
             aria-label={`View order, ${totalItems} items`}
             style={{
               display: "flex",
@@ -224,7 +227,7 @@ export default function OrderHeader() {
               <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4zM3 6h18" />
               <path d="M16 10a4 4 0 01-8 0" />
             </svg>
-            <span className="order-cart-label">View Order</span>
+            <span>View Order</span>
             {totalItems > 0 && (
               <span
                 style={{
@@ -245,19 +248,93 @@ export default function OrderHeader() {
               </span>
             )}
           </button>
+
+          {/* Mobile cart icon button — visible only on mobile */}
+          <button
+            className="order-cart-btn-mobile"
+            aria-label={`View cart, ${totalItems} items`}
+            style={{
+              display: "none", /* shown via media query */
+              position: "relative",
+              width: 44,
+              height: 44,
+              borderRadius: 12,
+              border: "1px solid rgba(201,160,80,0.25)",
+              background: "rgba(201,160,80,0.06)",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              transition: "all 0.2s",
+            }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(201,160,80,0.7)" strokeWidth="1.5">
+              <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" />
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <path d="M16 10a4 4 0 01-8 0" />
+            </svg>
+            {totalItems > 0 && (
+              <span
+                style={{
+                  position: "absolute",
+                  top: -4,
+                  right: -4,
+                  width: 20,
+                  height: 20,
+                  borderRadius: "50%",
+                  background: "#C9A050",
+                  color: "#080603",
+                  fontSize: 10,
+                  fontWeight: 700,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontFamily: "var(--font-body)",
+                }}
+              >
+                {totalItems}
+              </span>
+            )}
+          </button>
         </div>
       </div>
 
       {/* ── Responsive ── */}
       <style>{`
-        @media (max-width: 600px) {
-          .order-back-text { display: none; }
-          .order-pickup-badge { display: none !important; }
-          .order-cart-label { display: none; }
-          .order-logo-text { display: none; }
+        /* Mobile: compact header 56px */
+        @media (max-width: 900px) {
+          .order-header-inner {
+            height: 56px !important;
+          }
+          .order-pickup-badge {
+            display: none !important;
+          }
+          .order-cart-btn-desktop {
+            display: none !important;
+          }
+          .order-cart-btn-mobile {
+            display: flex !important;
+          }
         }
+
+        @media (max-width: 600px) {
+          .order-back-text {
+            display: none;
+          }
+          .order-logo-text {
+            display: none;
+          }
+        }
+
         @media (min-width: 601px) and (max-width: 900px) {
-          .order-pickup-badge { display: none !important; }
+          .order-back-text {
+            display: none;
+          }
+        }
+
+        @media (hover: none) and (pointer: coarse) {
+          .order-cart-btn-mobile:active {
+            background: rgba(201,160,80,0.15) !important;
+          }
         }
       `}</style>
     </header>

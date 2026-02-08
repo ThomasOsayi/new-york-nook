@@ -9,6 +9,7 @@ export default function OrderHero() {
   return (
     <section
       ref={ref as React.Ref<HTMLElement>}
+      className="order-hero-section"
       style={{
         position: "relative",
         height: "clamp(200px, 28vw, 280px)",
@@ -104,11 +105,11 @@ export default function OrderHero() {
         <h1
           style={{
             fontFamily: "var(--font-display)",
-            fontSize: "clamp(28px, 5vw, 52px)",
+            fontSize: "clamp(26px, 5vw, 52px)",
             fontWeight: 400,
             color: "#fff",
             lineHeight: 1.1,
-            margin: "0 0 clamp(6px, 1vw, 10px)",
+            margin: "0 0 clamp(4px, 1vw, 10px)",
           }}
         >
           Build Your{" "}
@@ -122,7 +123,7 @@ export default function OrderHero() {
           </em>
         </h1>
 
-        {/* Description — hidden on very small screens to save space */}
+        {/* Description — hidden on mobile to keep hero compact */}
         <p
           className="order-hero-desc"
           style={{
@@ -141,6 +142,7 @@ export default function OrderHero() {
 
         {/* Stars + info */}
         <div
+          className="order-hero-meta"
           style={{
             display: "flex",
             alignItems: "center",
@@ -175,8 +177,25 @@ export default function OrderHero() {
 
       {/* ── Responsive ── */}
       <style>{`
-        @media (max-width: 480px) {
-          .order-hero-desc { display: none; }
+        /* Mobile: compact hero */
+        @media (max-width: 600px) {
+          .order-hero-section {
+            height: auto !important;
+            min-height: 0 !important;
+          }
+          .order-hero-desc {
+            display: none !important;
+          }
+          .order-hero-meta span {
+            font-size: 9px !important;
+          }
+        }
+
+        /* Tablet: slightly shorter */
+        @media (min-width: 601px) and (max-width: 900px) {
+          .order-hero-section {
+            height: clamp(160px, 22vw, 220px) !important;
+          }
         }
       `}</style>
     </section>
