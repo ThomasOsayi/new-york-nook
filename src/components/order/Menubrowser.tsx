@@ -60,6 +60,7 @@ function Toast({ message, show }: { message: string; show: boolean }) {
 function QtyStepper({ qty, onInc, onDec }: { qty: number; onInc: () => void; onDec: () => void }) {
   return (
     <div
+      onClick={(e) => e.stopPropagation()}
       style={{
         display: "flex",
         alignItems: "center",
@@ -70,7 +71,7 @@ function QtyStepper({ qty, onInc, onDec }: { qty: number; onInc: () => void; onD
         padding: 3,
       }}
     >
-      <button onClick={onDec} aria-label="Decrease quantity" style={qtyBtnStyle}>−</button>
+      <button onClick={(e) => { e.stopPropagation(); onDec(); }} aria-label="Decrease quantity" style={qtyBtnStyle}>−</button>
       <span
         style={{
           width: 26,
@@ -83,7 +84,7 @@ function QtyStepper({ qty, onInc, onDec }: { qty: number; onInc: () => void; onD
       >
         {qty}
       </span>
-      <button onClick={onInc} aria-label="Increase quantity" style={qtyBtnStyle}>+</button>
+      <button onClick={(e) => { e.stopPropagation(); onInc(); }} aria-label="Increase quantity" style={qtyBtnStyle}>+</button>
     </div>
   );
 }
@@ -142,6 +143,12 @@ function MenuItemCard({
       className="menu-item-card"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onClick={() => {
+        /* On mobile, tapping anywhere on the card adds the item (if not already in cart) */
+        if (!cartItem && window.innerWidth <= 1024) {
+          handleAdd();
+        }
+      }}
       style={{
         display: "grid",
         gridTemplateColumns: "clamp(90px, 12vw, 130px) 1fr auto",
@@ -149,7 +156,6 @@ function MenuItemCard({
         background: hovered ? "rgb(var(--bg-elevated))" : "rgba(12,10,7,0.8)",
         border: `1px solid ${hovered ? "rgba(183,143,82,0.15)" : "rgba(255,255,255,0.04)"}`,
         borderRadius: "clamp(12px, 1.5vw, 16px)",
-        overflow: "hidden",
         cursor: "pointer",
         transition: "all 0.4s cubic-bezier(0.16,1,0.3,1)",
         transform: hovered ? "translateY(-2px)" : "translateY(0)",
@@ -167,6 +173,7 @@ function MenuItemCard({
           minHeight: "clamp(90px, 12vw, 130px)",
           overflow: "hidden",
           position: "relative",
+          borderRadius: "inherit",
         }}
       >
         <Image
@@ -221,6 +228,7 @@ function MenuItemCard({
 
       {/* Info */}
       <div
+        className="menu-item-info"
         style={{
           padding: "clamp(12px, 2vw, 18px) clamp(12px, 2vw, 20px)",
           display: "flex",
@@ -283,6 +291,8 @@ function MenuItemCard({
               WebkitLineClamp: 2,
               WebkitBoxOrient: "vertical",
               overflow: "hidden",
+              wordBreak: "break-word",
+              maxWidth: "100%",
             }}
           >
             {item.desc}
@@ -316,60 +326,68 @@ function MenuItemCard({
             })}
           </div>
         )}
+      </div>
 
-        {/* Mobile price + add — visible only on small screens */}
-        <div
-          className="menu-item-price-mobile"
+      {/* Mobile price + Add row — own grid row spanning full width (visible only on small screens) */}
+      <div
+        className="menu-item-price-mobile"
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          display: "none",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
+        }}
+      >
+        <span
           style={{
-            display: "none",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginTop: "clamp(8px, 1.2vw, 12px)",
+            fontFamily: "var(--font-accent)",
+            fontSize: 20,
+            fontWeight: 600,
+            color: "#C9A050",
+            flexShrink: 0,
           }}
         >
-          <span
+          ${item.price}
+        </span>
+        {cartItem ? (
+          <QtyStepper
+            qty={cartItem.qty}
+            onInc={() => updateQty(item.name, categoryKey, cartItem.qty + 1)}
+            onDec={() => {
+              if (cartItem.qty <= 1) removeItem(item.name, categoryKey);
+              else updateQty(item.name, categoryKey, cartItem.qty - 1);
+            }}
+          />
+        ) : (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleAdd();
+            }}
+            aria-label={`Add ${item.name} to order`}
+            className="menu-add-btn"
             style={{
-              fontFamily: "var(--font-accent)",
-              fontSize: "clamp(18px, 2.5vw, 22px)",
-              fontWeight: 600,
+              padding: "8px 20px",
+              borderRadius: 10,
+              border: "1px solid rgba(201,160,80,0.4)",
+              background: "rgba(201,160,80,0.12)",
               color: "#C9A050",
+              cursor: "pointer",
+              fontSize: 13,
+              fontWeight: 700,
+              fontFamily: "var(--font-body)",
+              letterSpacing: 0.5,
+              transition: "all 0.2s",
+              minHeight: 38,
+              minWidth: 72,
+              whiteSpace: "nowrap",
+              flexShrink: 0,
             }}
           >
-            ${item.price}
-          </span>
-          {cartItem ? (
-            <QtyStepper
-              qty={cartItem.qty}
-              onInc={() => updateQty(item.name, categoryKey, cartItem.qty + 1)}
-              onDec={() => {
-                if (cartItem.qty <= 1) removeItem(item.name, categoryKey);
-                else updateQty(item.name, categoryKey, cartItem.qty - 1);
-              }}
-            />
-          ) : (
-            <button
-              onClick={handleAdd}
-              aria-label={`Add ${item.name} to order`}
-              style={{
-                padding: "8px 16px",
-                borderRadius: 8,
-                border: "1px solid rgba(201,160,80,0.25)",
-                background: "rgba(201,160,80,0.08)",
-                color: "#C9A050",
-                cursor: "pointer",
-                fontSize: 12,
-                fontWeight: 600,
-                fontFamily: "var(--font-body)",
-                letterSpacing: 0.5,
-                transition: "all 0.2s",
-                minHeight: 36,
-                whiteSpace: "nowrap",
-              }}
-            >
-              + Add
-            </button>
-          )}
-        </div>
+            + Add
+          </button>
+        )}
       </div>
 
       {/* Price + Add/Qty — desktop only */}
@@ -410,7 +428,10 @@ function MenuItemCard({
           />
         ) : (
           <button
-            onClick={handleAdd}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleAdd();
+            }}
             aria-label={`Add ${item.name} to order`}
             style={{
               width: 42,
@@ -749,11 +770,16 @@ export default function MenuBrowser() {
         .order-cat-nav::-webkit-scrollbar { display: none; }
         .order-cat-nav { scrollbar-width: none; }
 
+        /* Desktop: clip image scale on hover; mobile: visible so Add button isn't clipped */
+        @media (min-width: 1025px) {
+          .menu-item-card { overflow: hidden; }
+        }
+
         /* Desktop: no bottom spacer needed */
         .menu-bottom-spacer { height: 0; }
 
         /* ── Mobile: pill tabs + bottom spacer ── */
-        @media (max-width: 900px) {
+        @media (max-width: 1024px) {
           /* Sticky nav adjusts for 56px mobile header */
           .order-cat-nav {
             top: 56px !important;
@@ -783,9 +809,11 @@ export default function MenuBrowser() {
           }
         }
 
-        @media (max-width: 520px) {
+        /* Mobile: stacked layout — image+info in row 1, price+Add full-width row 2 */
+        @media (max-width: 1024px) {
           .menu-item-card {
             grid-template-columns: 80px 1fr !important;
+            grid-template-rows: auto auto !important;
             transform: none !important;
             box-shadow: none !important;
           }
@@ -794,9 +822,26 @@ export default function MenuBrowser() {
           }
           .menu-item-price-mobile {
             display: flex !important;
+            grid-column: 1 / -1 !important;
+            padding: 8px 12px 12px !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            border-top: 1px solid rgba(255,255,255,0.04) !important;
           }
           .menu-item-img {
             min-height: 80px !important;
+            border-radius: 12px 0 0 0 !important;
+          }
+          .menu-item-desc {
+            -webkit-line-clamp: 2 !important;
+          }
+        }
+
+        /* Extra compact on small phones */
+        @media (max-width: 480px) {
+          .menu-item-img {
+            min-height: 80px !important;
+            border-radius: 10px 0 0 0 !important;
           }
           .menu-item-desc {
             -webkit-line-clamp: 1 !important;
@@ -811,6 +856,12 @@ export default function MenuBrowser() {
           .menu-item-card:active {
             background: rgb(var(--bg-elevated)) !important;
             border-color: rgba(183,143,82,0.15) !important;
+            transform: scale(0.98) !important;
+          }
+          .menu-add-btn:active {
+            background: rgba(201,160,80,0.3) !important;
+            border-color: rgba(201,160,80,0.6) !important;
+            transform: scale(0.95) !important;
           }
         }
       `}</style>
