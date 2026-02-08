@@ -9,7 +9,6 @@ const NAV_ITEMS = [
   { key: "orders",    label: "Orders",    icon: "📋", href: "/dashboard/orders" },
   { key: "catering",  label: "Catering",  icon: "🥂", href: "/dashboard/catering" },
   { key: "inventory", label: "Inventory", icon: "📦", href: "/dashboard/inventory" },
-  { key: "staff",     label: "Staff",     icon: "👥", href: "/dashboard/staff" },
   { key: "analytics", label: "Analytics", icon: "📊", href: "/dashboard/analytics" },
   { key: "settings",  label: "Settings",  icon: "⚙️", href: "/dashboard/settings" },
 ] as const;
