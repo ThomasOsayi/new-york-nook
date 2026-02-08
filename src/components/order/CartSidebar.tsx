@@ -14,22 +14,41 @@ const TAX_RATE = 0.095;
 const PACKAGING_FEE = 2;
 
 export default function CartSidebar() {
-  const { items, updateQty, removeItem } = useCart();
+  const {
+    items,
+    updateQty,
+    removeItem,
+    promo,
+    promoLoading,
+    promoError,
+    applyPromo,
+    removePromo,
+  } = useCart();
   const [activeTime, setActiveTime] = useState(0);
   const [showInstructions, setShowInstructions] = useState(false);
-  const [promo, setPromo] = useState("");
+  const [promoInput, setPromoInput] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const totalItems = items.reduce((sum: number, i: CartItem) => sum + i.qty, 0);
   const subtotal = items.reduce((sum: number, i: CartItem) => sum + i.price * i.qty, 0);
-  const tax = subtotal * TAX_RATE;
-  const total = subtotal + tax + (items.length > 0 ? PACKAGING_FEE : 0);
+  const discount = promo ? promo.discount : 0;
+  const taxableSubtotal = subtotal - discount;
+  const tax = taxableSubtotal * TAX_RATE;
+  const total = taxableSubtotal + tax + (items.length > 0 ? PACKAGING_FEE : 0);
 
   const timeOptions = [
     { label: "ASAP", value: "25–35 min" },
     { label: "Today", value: "6:30 PM" },
     { label: "Today", value: "7:00 PM" },
   ];
+
+  /* ── Handle Apply click ── */
+  const handleApplyPromo = async () => {
+    const success = await applyPromo(promoInput, subtotal);
+    if (success) {
+      setPromoInput(""); // clear input on success, badge will show instead
+    }
+  };
 
   return (
     <>
@@ -244,7 +263,6 @@ export default function CartSidebar() {
           }}
         >
           {items.length === 0 ? (
-            /* Empty state */
             <div
               style={{
                 display: "flex",
@@ -295,7 +313,6 @@ export default function CartSidebar() {
                   borderBottom: "1px solid rgba(255,255,255,0.04)",
                 }}
               >
-                {/* Thumbnail */}
                 <div
                   style={{
                     width: 50,
@@ -316,7 +333,6 @@ export default function CartSidebar() {
                   />
                 </div>
 
-                {/* Info + qty */}
                 <div style={{ minWidth: 0 }}>
                   <div
                     style={{
@@ -343,7 +359,6 @@ export default function CartSidebar() {
                   >
                     {catLabelMap[item.categoryKey] ?? ""}
                   </div>
-                  {/* Qty controls */}
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <button
                       aria-label="Decrease quantity"
@@ -393,7 +408,6 @@ export default function CartSidebar() {
                   </div>
                 </div>
 
-                {/* Price + remove */}
                 <div style={{ textAlign: "right" }}>
                   <div
                     style={{
@@ -434,57 +448,159 @@ export default function CartSidebar() {
         {/* ── Promo Code ── */}
         {items.length > 0 && (
           <div style={{ padding: "0 clamp(16px, 3vw, 28px) 14px" }}>
-            <div style={{ display: "flex", gap: 8 }}>
-              <input
-                type="text"
-                placeholder="Promo code"
-                value={promo}
-                onChange={(e) => setPromo(e.target.value)}
+            {promo ? (
+              /* ── Applied promo badge ── */
+              <div
                 style={{
-                  flex: 1,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
                   padding: "10px 14px",
-                  background: "rgb(var(--bg-primary))",
-                  border: "1px solid rgba(255,255,255,0.05)",
+                  background: "rgba(74,222,128,0.06)",
+                  border: "1px solid rgba(74,222,128,0.15)",
                   borderRadius: 8,
-                  fontFamily: "var(--font-body)",
-                  fontSize: 16, /* iOS zoom prevention */
-                  color: "#fff",
-                  outline: "none",
-                  transition: "border-color 0.3s",
-                  WebkitAppearance: "none",
-                }}
-                onFocus={(e) => (e.currentTarget.style.borderColor = "rgba(183,143,82,0.2)")}
-                onBlur={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.05)")}
-              />
-              <button
-                style={{
-                  padding: "10px 16px",
-                  background: "rgb(var(--bg-elevated))",
-                  border: "1px solid rgba(255,255,255,0.06)",
-                  borderRadius: 8,
-                  fontFamily: "var(--font-body)",
-                  fontSize: 11,
-                  fontWeight: 600,
-                  letterSpacing: 1,
-                  textTransform: "uppercase",
-                  color: "rgba(255,255,255,0.4)",
-                  cursor: "pointer",
-                  transition: "all 0.2s",
-                  minHeight: 44,
-                  whiteSpace: "nowrap",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = "rgba(183,143,82,0.3)";
-                  e.currentTarget.style.color = "#C9A050";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)";
-                  e.currentTarget.style.color = "rgba(255,255,255,0.4)";
                 }}
               >
-                Apply
-              </button>
-            </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4ADE80" strokeWidth="2">
+                    <path d="M20 6L9 17l-5-5" />
+                  </svg>
+                  <span
+                    style={{
+                      fontFamily: "'DM Mono', monospace",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      color: "#4ADE80",
+                      letterSpacing: 1.5,
+                    }}
+                  >
+                    {promo.code}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      color: "rgba(74,222,128,0.6)",
+                      fontFamily: "var(--font-body)",
+                      fontWeight: 400,
+                    }}
+                  >
+                    −${promo.discount.toFixed(2)}
+                  </span>
+                </div>
+                <button
+                  onClick={removePromo}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    fontSize: 15,
+                    color: "rgba(255,255,255,0.25)",
+                    lineHeight: 1,
+                    padding: "2px 4px",
+                    borderRadius: 4,
+                    transition: "color 0.15s",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = "#F87171")}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.25)")}
+                  title="Remove promo"
+                >
+                  ×
+                </button>
+              </div>
+            ) : (
+              /* ── Promo input ── */
+              <>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input
+                    type="text"
+                    placeholder="Promo code"
+                    value={promoInput}
+                    onChange={(e) => setPromoInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleApplyPromo();
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: "10px 14px",
+                      background: "rgb(var(--bg-primary))",
+                      border: `1px solid ${promoError ? "rgba(248,113,113,0.3)" : "rgba(255,255,255,0.05)"}`,
+                      borderRadius: 8,
+                      fontFamily: "var(--font-body)",
+                      fontSize: 16,
+                      color: "#fff",
+                      outline: "none",
+                      transition: "border-color 0.3s",
+                      textTransform: "uppercase",
+                      letterSpacing: 1,
+                      WebkitAppearance: "none",
+                    }}
+                    onFocus={(e) => {
+                      if (!promoError)
+                        e.currentTarget.style.borderColor = "rgba(183,143,82,0.2)";
+                    }}
+                    onBlur={(e) => {
+                      if (!promoError)
+                        e.currentTarget.style.borderColor = "rgba(255,255,255,0.05)";
+                    }}
+                  />
+                  <button
+                    onClick={handleApplyPromo}
+                    disabled={promoLoading}
+                    style={{
+                      padding: "10px 16px",
+                      background: "rgb(var(--bg-elevated))",
+                      border: "1px solid rgba(255,255,255,0.06)",
+                      borderRadius: 8,
+                      fontFamily: "var(--font-body)",
+                      fontSize: 11,
+                      fontWeight: 600,
+                      letterSpacing: 1,
+                      textTransform: "uppercase",
+                      color: promoLoading ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.4)",
+                      cursor: promoLoading ? "wait" : "pointer",
+                      transition: "all 0.2s",
+                      minWidth: 64,
+                      minHeight: 44,
+                      whiteSpace: "nowrap",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!promoLoading) {
+                        e.currentTarget.style.borderColor = "rgba(183,143,82,0.3)";
+                        e.currentTarget.style.color = "#C9A050";
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)";
+                      e.currentTarget.style.color = promoLoading
+                        ? "rgba(255,255,255,0.2)"
+                        : "rgba(255,255,255,0.4)";
+                    }}
+                  >
+                    {promoLoading ? "…" : "Apply"}
+                  </button>
+                </div>
+                {promoError && (
+                  <div
+                    style={{
+                      marginTop: 6,
+                      fontSize: 11,
+                      color: "#F87171",
+                      fontFamily: "var(--font-body)",
+                      fontWeight: 400,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 5,
+                    }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="M12 8v4m0 4h.01" />
+                    </svg>
+                    {promoError}
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
 
@@ -527,7 +643,7 @@ export default function CartSidebar() {
                   border: "1px solid rgba(255,255,255,0.05)",
                   borderRadius: 10,
                   fontFamily: "var(--font-body)",
-                  fontSize: 16, /* iOS zoom prevention */
+                  fontSize: 16,
                   color: "#fff",
                   resize: "none",
                   height: 60,
@@ -557,6 +673,17 @@ export default function CartSidebar() {
                 <span>Subtotal</span>
                 <span style={{ color: "#fff", fontWeight: 500 }}>${subtotal.toFixed(2)}</span>
               </div>
+              {/* Discount row — only when promo is applied */}
+              {promo && (
+                <div style={{ ...totalRowStyle, color: "#4ADE80" }}>
+                  <span>
+                    Discount ({promo.type === "percent" ? `${promo.value}%` : `$${promo.value}`})
+                  </span>
+                  <span style={{ color: "#4ADE80", fontWeight: 500 }}>
+                    −${promo.discount.toFixed(2)}
+                  </span>
+                </div>
+              )}
               <div style={totalRowStyle}>
                 <span>Tax (9.5%)</span>
                 <span style={{ color: "#fff", fontWeight: 500 }}>${tax.toFixed(2)}</span>
@@ -695,11 +822,6 @@ export default function CartSidebar() {
           }
           .order-cart-sidebar.cart-open {
             transform: translateY(0) !important;
-          }
-          /* When collapsed, hide everything except summary bar + drag handle */
-          .order-cart-sidebar:not(.cart-open) .cart-header,
-          .order-cart-sidebar:not(.cart-open) > div:nth-child(n+4) {
-            /* Content still exists but is off-screen via translateY */
           }
         }
       `}</style>

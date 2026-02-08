@@ -39,6 +39,8 @@ body {
 
 ::selection { background: rgba(var(--gold), 0.3); color: #fff; }
 
+@keyframes spin { to { transform: rotate(360deg); } }
+
 /* ── Scrollbar ─────────────────────────────────────────── */
 ::-webkit-scrollbar       { width: 5px; }
 ::-webkit-scrollbar-track { background: rgb(var(--bg-primary)); }

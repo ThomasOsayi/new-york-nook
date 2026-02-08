@@ -7,9 +7,6 @@ import {
   query,
   where,
   getDocs,
-  doc,
-  updateDoc,
-  increment,
 } from "firebase/firestore";
 
 export interface CartItem {
