@@ -26,7 +26,7 @@ function Toast({ message, show }: { message: string; show: boolean }) {
     <div
       style={{
         position: "fixed",
-        bottom: "clamp(80px, 12vw, 30px)",
+        bottom: "clamp(90px, 14vw, 30px)",
         left: "50%",
         transform: `translateX(-50%) translateY(${show ? "0" : "80px"})`,
         background: "rgba(26,21,16,0.95)",
@@ -89,8 +89,8 @@ function QtyStepper({ qty, onInc, onDec }: { qty: number; onInc: () => void; onD
 }
 
 const qtyBtnStyle: React.CSSProperties = {
-  width: 30,
-  height: 30,
+  width: 36,
+  height: 36,
   borderRadius: 8,
   border: "none",
   background: "transparent",
@@ -248,7 +248,7 @@ function MenuItemCard({
               <span
                 key={tag}
                 style={{
-                  fontSize: 8,
+                  fontSize: "clamp(8px, 1.2vw, 9px)",
                   letterSpacing: 1.5,
                   textTransform: "uppercase",
                   padding: "3px 8px",
@@ -298,7 +298,7 @@ function MenuItemCard({
                 <span
                   key={tag}
                   style={{
-                    fontSize: 8,
+                    fontSize: "clamp(8px, 1.2vw, 9px)",
                     letterSpacing: 1,
                     textTransform: "uppercase",
                     padding: "2px 6px",
@@ -754,6 +754,8 @@ export default function MenuBrowser() {
         @media (max-width: 520px) {
           .menu-item-card {
             grid-template-columns: clamp(70px, 20vw, 90px) 1fr !important;
+            transform: none !important;
+            box-shadow: none !important;
           }
           .menu-item-price-col {
             display: none !important;
@@ -766,6 +768,17 @@ export default function MenuBrowser() {
           }
           .menu-item-desc {
             -webkit-line-clamp: 1 !important;
+          }
+        }
+
+        @media (hover: none) and (pointer: coarse) {
+          .menu-item-card {
+            transform: none !important;
+            box-shadow: none !important;
+          }
+          .menu-item-card:active {
+            background: rgb(var(--bg-elevated)) !important;
+            border-color: rgba(183,143,82,0.15) !important;
           }
         }
       `}</style>

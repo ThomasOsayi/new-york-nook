@@ -48,7 +48,7 @@ export default function ConfirmationContent() {
           background: scrolled ? "rgba(8,6,3,0.96)" : "rgba(8,6,3,0.85)",
           backdropFilter: "blur(24px) saturate(1.4)",
           borderBottom: `1px solid ${scrolled ? "rgba(183,143,82,0.08)" : "rgba(255,255,255,0.03)"}`,
-          height: 76,
+          height: "clamp(56px, 8vw, 76px)",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -103,11 +103,11 @@ export default function ConfirmationContent() {
           <span style={{ color: "#C9A050" }}>Confirmed</span>
         </div>
 
-        <div style={{ width: 120 }} />
+        <div className="confirm-spacer" style={{ width: 120 }} />
       </header>
 
       {/* ═══ Content ═══ */}
-      <div style={{ maxWidth: 680, margin: "0 auto", padding: "60px clamp(20px,4vw,40px) 100px" }}>
+      <div className="confirm-content" style={{ maxWidth: 680, margin: "0 auto", padding: "60px clamp(20px,4vw,40px) 100px" }}>
 
         {/* Loading */}
         {loading && (
@@ -244,6 +244,7 @@ export default function ConfirmationContent() {
 
               {/* Pickup details */}
               <div
+                className="confirm-pickup-grid"
                 style={{
                   display: "grid",
                   gridTemplateColumns: "1fr 1fr",
@@ -492,6 +493,8 @@ export default function ConfirmationContent() {
 
         @media (max-width: 600px) {
           .confirm-steps { display: none !important; }
+          .confirm-spacer { display: none !important; }
+          .confirm-content { padding-top: 32px !important; padding-bottom: 60px !important; }
           .confirm-actions {
             flex-direction: column !important;
             align-items: stretch !important;
@@ -499,6 +502,9 @@ export default function ConfirmationContent() {
           .confirm-actions a {
             justify-content: center !important;
           }
+        }
+        @media (max-width: 480px) {
+          .confirm-pickup-grid { grid-template-columns: 1fr !important; }
         }
       `}</style>
     </div>

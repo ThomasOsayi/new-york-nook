@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useIsMobile, useIsTablet } from "@/hooks/useIsMobile";
 import { db } from "@/lib/firebase";
 import {
   doc,
@@ -69,6 +70,9 @@ const TAG_MAP: Record<string, { label: string; bg: string; color: string }> = {
    Inventory Page
    ════════════════════════════════════════════ */
 export default function InventoryPage() {
+  const isMobile = useIsMobile();
+  const isTablet = useIsTablet();
+
   /* ── State ── */
   const [statuses, setStatuses] = useState<Record<string, ItemStatus>>(() => {
     const init: Record<string, ItemStatus> = {};
@@ -267,7 +271,7 @@ export default function InventoryPage() {
   return (
     <div style={{ minHeight: "100vh" }}>
       {/* ── Topbar ── */}
-      <div style={styles.topbar}>
+      <div style={{ ...styles.topbar, padding: isTablet ? "0 16px" : "0 28px" }}>
         <h1 style={styles.topbarTitle}>Inventory</h1>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -286,9 +290,9 @@ export default function InventoryPage() {
         </div>
       </div>
 
-      <div style={{ padding: "20px 28px" }}>
+      <div style={{ padding: isTablet ? "20px 16px" : "20px 28px" }}>
         {/* ── Stats row ── */}
-        <div style={styles.statsRow}>
+        <div className="dash-stats-row" style={styles.statsRow}>
           <StatCard
             label="Total Items"
             value={TOTAL_ITEMS}
@@ -315,13 +319,14 @@ export default function InventoryPage() {
         </div>
 
         {/* ── Controls bar ── */}
-        <div style={styles.controlsBar}>
-          <div style={styles.categoryTabs}>
+        <div style={{ ...styles.controlsBar, flexDirection: isTablet ? "column" : "row", alignItems: isTablet ? "stretch" : "center", gap: 12 }}>
+          <div className="dash-filter-tabs" style={styles.categoryTabs}>
             <CatTab
               label="All"
               count={catCounts.all}
               active={activeCategory === "all"}
               onClick={() => setActiveCategory("all")}
+              isTablet={isTablet}
             />
             {categories.map((cat) => (
               <CatTab
@@ -330,6 +335,7 @@ export default function InventoryPage() {
                 count={catCounts[cat.key]}
                 active={activeCategory === cat.key}
                 onClick={() => setActiveCategory(cat.key)}
+                isTablet={isTablet}
               />
             ))}
           </div>
@@ -339,7 +345,7 @@ export default function InventoryPage() {
               placeholder="Search items…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              style={styles.searchBox}
+              style={{ ...styles.searchBox, width: isTablet ? "100%" : 200 }}
               onFocus={(e) => (e.currentTarget.style.borderColor = "rgba(201,160,80,0.3)")}
               onBlur={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)")}
             />
@@ -359,7 +365,7 @@ export default function InventoryPage() {
         </div>
 
         {/* ── Main grid ── */}
-        <div style={styles.mainGrid}>
+        <div className="dash-split-layout" style={{ ...styles.mainGrid, gridTemplateColumns: isTablet ? "1fr" : "1fr 340px" }}>
           {/* Items panel */}
           <div style={styles.itemsPanel}>
             {loading ? (
@@ -394,6 +400,7 @@ export default function InventoryPage() {
                     categoryKey={item.categoryKey}
                     status={statuses[item.name] ?? "available"}
                     onSetStatus={handleSetStatus}
+                    isTablet={isTablet}
                   />
                 ))}
               </>
@@ -591,11 +598,13 @@ function CatTab({
   count,
   active,
   onClick,
+  isTablet,
 }: {
   label: string;
   count: number;
   active: boolean;
   onClick: () => void;
+  isTablet?: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
   return (
@@ -604,7 +613,8 @@ function CatTab({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        padding: "7px 14px",
+        padding: isTablet ? "10px 14px" : "7px 14px",
+        minHeight: isTablet ? 44 : undefined,
         borderRadius: 8,
         border: `1px solid ${active ? "rgba(201,160,80,0.25)" : "rgba(255,255,255,0.06)"}`,
         background: active
@@ -648,6 +658,7 @@ function ItemCard({
   categoryKey,
   status,
   onSetStatus,
+  isTablet,
 }: {
   name: string;
   desc: string;
@@ -656,6 +667,7 @@ function ItemCard({
   categoryKey: string;
   status: ItemStatus;
   onSetStatus: (name: string, categoryKey: string, status: ItemStatus) => void;
+  isTablet?: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
   const is86 = status === "86";
@@ -761,6 +773,7 @@ function ItemCard({
             active={status === s}
             variant={s}
             onClick={() => onSetStatus(name, categoryKey, s)}
+            isTablet={isTablet}
           />
         ))}
       </div>
@@ -773,11 +786,13 @@ function ToggleBtn({
   active,
   variant,
   onClick,
+  isTablet,
 }: {
   label: string;
   active: boolean;
   variant: ItemStatus;
   onClick: () => void;
+  isTablet?: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
 
@@ -798,7 +813,8 @@ function ToggleBtn({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        padding: "6px 10px",
+        padding: isTablet ? "8px 14px" : "6px 10px",
+        minHeight: isTablet ? 44 : undefined,
         fontSize: 10,
         fontWeight: 600,
         fontFamily: "var(--font-body)",

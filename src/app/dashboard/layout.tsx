@@ -3,6 +3,7 @@
 import { signOut } from "@/lib/auth";
 import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { useIsTablet } from "@/hooks/useIsMobile";
 
 /* ── Sidebar nav items ── */
 const NAV_ITEMS = [
@@ -17,6 +18,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
+  const isTablet = useIsTablet();
 
   /* Determine active nav item from pathname */
   const activeKey = NAV_ITEMS.find((n) => pathname.startsWith(n.href))?.key ?? "orders";
@@ -31,8 +33,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         fontFamily: "var(--font-body)",
       }}
     >
-      {/* ───────────────── Sidebar ───────────────── */}
+      {/* ───────────────── Sidebar (desktop only) ───────────────── */}
       <aside
+        className="dash-sidebar"
         style={{
           width: collapsed ? 72 : 240,
           flexShrink: 0,
@@ -138,6 +141,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   cursor: "pointer",
                   transition: "all 0.2s",
                   width: "100%",
+                  minHeight: 44,
                 }}
                 onMouseEnter={(e) => {
                   if (!active) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)";
@@ -198,7 +202,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               display: "flex",
               alignItems: "center",
               gap: 12,
-              padding: collapsed ? "10px 0" : "10px 14px",
+              padding: collapsed ? "12px 0" : "12px 14px",
               justifyContent: collapsed ? "center" : "flex-start",
               borderRadius: 10,
               border: "none",
@@ -206,6 +210,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               cursor: "pointer",
               transition: "all 0.2s",
               width: "100%",
+              minHeight: 44,
             }}
             onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(239,68,68,0.08)")}
             onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
@@ -231,7 +236,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               background: "rgba(255,255,255,0.04)",
               border: "1px solid rgba(255,255,255,0.06)",
               borderRadius: 8,
-              padding: "8px 12px",
+              padding: "12px 12px",
               cursor: "pointer",
               color: "rgba(255,255,255,0.35)",
               fontSize: 14,
@@ -239,6 +244,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               alignItems: "center",
               justifyContent: "center",
               width: collapsed ? 40 : "100%",
+              minHeight: 44,
               transition: "all 0.2s",
             }}
           >
@@ -248,9 +254,77 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </aside>
 
       {/* ───────────────── Main content ───────────────── */}
-      <main style={{ flex: 1, minWidth: 0, overflow: "auto" }}>
+      <main style={{ flex: 1, minWidth: 0, overflow: "auto", paddingBottom: isTablet ? 72 : 0 }}>
         {children}
       </main>
+
+      {/* ───────────────── Bottom Tab Bar (mobile/tablet only) ───────────────── */}
+      <nav
+        className="dash-bottom-nav"
+        style={{
+          position: "fixed",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: 56,
+          paddingBottom: "env(safe-area-inset-bottom, 0px)",
+          background: "rgba(8,6,3,0.97)",
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
+          borderTop: "1px solid rgba(255,255,255,0.06)",
+          display: "none",
+          justifyContent: "space-around",
+          alignItems: "center",
+          zIndex: 100,
+        }}
+      >
+        {NAV_ITEMS.map((item) => {
+          const active = item.key === activeKey;
+          return (
+            <button
+              key={item.key}
+              onClick={() => router.push(item.href)}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 2,
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
+                minWidth: 44,
+                minHeight: 44,
+                padding: "6px 8px",
+                transition: "color 0.2s",
+              }}
+            >
+              <span style={{ fontSize: 20, lineHeight: 1 }}>{item.icon}</span>
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: active ? 600 : 400,
+                  color: active ? "#C9A050" : "rgba(255,255,255,0.4)",
+                  letterSpacing: 0.3,
+                }}
+              >
+                {item.label}
+              </span>
+              {active && (
+                <div
+                  style={{
+                    width: 4,
+                    height: 4,
+                    borderRadius: "50%",
+                    background: "#C9A050",
+                    marginTop: 1,
+                  }}
+                />
+              )}
+            </button>
+          );
+        })}
+      </nav>
     </div>
   );
 }

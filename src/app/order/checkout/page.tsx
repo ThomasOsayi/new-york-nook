@@ -6,6 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useCart, type CartItem } from "@/components/order/Cartcontext";
 import { useScrollY } from "@/hooks/useScrollY";
+import { useIsTablet } from "@/hooks/useIsMobile";
 import { categories } from "@/data/menu";
 import { createOrder } from "@/lib/order";
 
@@ -24,6 +25,8 @@ export default function CheckoutPage() {
   const { items, clearCart, promo } = useCart();
   const scrollY = useScrollY();
   const scrolled = scrollY > 10;
+  const isTablet = useIsTablet();
+  const [summaryOpen, setSummaryOpen] = useState(false);
 
   /* ── Form state ── */
   const [firstName, setFirstName] = useState("");
@@ -117,7 +120,7 @@ export default function CheckoutPage() {
           background: scrolled ? "rgba(8,6,3,0.96)" : "rgba(8,6,3,0.85)",
           backdropFilter: "blur(24px) saturate(1.4)",
           borderBottom: `1px solid ${scrolled ? "rgba(183,143,82,0.08)" : "rgba(255,255,255,0.03)"}`,
-          height: 76,
+          height: "clamp(56px, 8vw, 76px)",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -126,7 +129,7 @@ export default function CheckoutPage() {
         }}
       >
         {/* Left: logo + back */}
-        <div style={{ display: "flex", alignItems: "center", gap: 32 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "clamp(16px, 3vw, 32px)" }}>
           <Link href="/" style={{ display: "flex", alignItems: "center", gap: 12, textDecoration: "none" }}>
             <div
               style={{
@@ -175,6 +178,9 @@ export default function CheckoutPage() {
               color: "rgba(255,255,255,0.45)",
               textDecoration: "none",
               transition: "color 0.3s",
+              minHeight: 44,
+              minWidth: 44,
+              justifyContent: "center",
             }}
             onMouseEnter={(e) => (e.currentTarget.style.color = "#C9A050")}
             onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.45)")}
@@ -238,8 +244,8 @@ export default function CheckoutPage() {
         {/* ═══ Form Side ═══ */}
         <div
           style={{
-            padding: "48px clamp(24px,4vw,64px) 100px",
-            borderRight: "1px solid rgba(255,255,255,0.04)",
+            padding: isTablet ? "32px clamp(16px,4vw,64px) 120px" : "48px clamp(24px,4vw,64px) 100px",
+            borderRight: isTablet ? "none" : "1px solid rgba(255,255,255,0.04)",
           }}
         >
           <h1
@@ -418,7 +424,7 @@ export default function CheckoutPage() {
           )}
 
           {/* ── Place Order ── */}
-          <div style={{ animation: "checkoutFadeUp 0.5s ease both", animationDelay: "0.33s" }}>
+          <div className="checkout-place-order-desktop" style={{ animation: "checkoutFadeUp 0.5s ease both", animationDelay: "0.33s" }}>
             <button
               onClick={handlePlaceOrder}
               disabled={loading}
@@ -505,22 +511,35 @@ export default function CheckoutPage() {
             overflow: "hidden",
           }}
         >
-          {/* Header */}
+          {/* Header — collapsible on mobile */}
           <div
             style={{
               padding: "32px 28px 20px",
               borderBottom: "1px solid rgba(255,255,255,0.04)",
               background: "linear-gradient(180deg, rgba(201,160,80,0.02) 0%, transparent 100%)",
+              cursor: isTablet ? "pointer" : "default",
             }}
+            onClick={() => isTablet && setSummaryOpen(!summaryOpen)}
           >
-            <h2 style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 500, color: "#fff", margin: "0 0 4px" }}>
-              Order Summary
-            </h2>
-            <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "rgba(255,255,255,0.2)", fontWeight: 300, margin: 0 }}>
-              {totalItems} {totalItems === 1 ? "item" : "items"} · Pickup
-            </p>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <h2 style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 500, color: "#fff", margin: "0 0 4px" }}>
+                  Order Summary
+                </h2>
+                <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "rgba(255,255,255,0.2)", fontWeight: 300, margin: 0 }}>
+                  {totalItems} {totalItems === 1 ? "item" : "items"} · ${total.toFixed(2)}
+                </p>
+              </div>
+              {isTablet && (
+                <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 18, transition: "transform 0.3s", transform: summaryOpen ? "rotate(180deg)" : "rotate(0deg)" }}>
+                  ▾
+                </span>
+              )}
+            </div>
           </div>
 
+          {/* Summary body — collapsed on mobile unless toggled */}
+          <div style={{ display: isTablet && !summaryOpen ? "none" : "flex", flexDirection: "column", flex: 1, overflow: "hidden" }}>
           {/* Pickup info */}
           <div
             style={{
@@ -686,8 +705,62 @@ export default function CheckoutPage() {
               ← Edit Order
             </Link>
           </div>
+          </div>{/* end summary body wrapper */}
         </aside>
       </div>
+
+      {/* ═══ Fixed bottom Place Order bar (mobile) ═══ */}
+      {isTablet && (
+        <div
+          className="checkout-mobile-bar"
+          style={{
+            position: "fixed",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            padding: "16px 20px",
+            paddingBottom: "calc(16px + env(safe-area-inset-bottom, 0px))",
+            background: "rgba(8,6,3,0.97)",
+            backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
+            borderTop: "1px solid rgba(183,143,82,0.12)",
+            zIndex: 90,
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
+          }}
+        >
+          <div style={{ flex: 1 }}>
+            <div style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "rgba(255,255,255,0.3)", fontWeight: 300 }}>
+              {totalItems} {totalItems === 1 ? "item" : "items"}
+            </div>
+            <div style={{ fontFamily: "var(--font-accent)", fontSize: 22, fontWeight: 700, color: "#C9A050" }}>
+              ${total.toFixed(2)}
+            </div>
+          </div>
+          <button
+            onClick={handlePlaceOrder}
+            disabled={loading}
+            className="btn-gold-filled"
+            style={{
+              padding: "16px 28px",
+              borderRadius: 12,
+              fontSize: 12,
+              letterSpacing: 2,
+              fontWeight: 800,
+              boxShadow: "0 8px 32px rgba(201,160,80,0.25)",
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              opacity: loading ? 0.6 : 1,
+              cursor: loading ? "wait" : "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {loading ? "Placing..." : "Place Order"}
+          </button>
+        </div>
+      )}
 
       {/* ═══ Animations + Responsive ═══ */}
       <style>{`
@@ -707,6 +780,7 @@ export default function CheckoutPage() {
             position: relative !important;
             top: auto !important;
             height: auto !important;
+            order: -1; /* Move summary above form on mobile */
           }
           .checkout-steps { display: none !important; }
           .checkout-secure { display: none !important; }
@@ -719,6 +793,9 @@ export default function CheckoutPage() {
           }
           .checkout-field-row {
             grid-template-columns: 1fr !important;
+          }
+          .checkout-place-order-desktop {
+            display: none !important;
           }
         }
       `}</style>
@@ -803,7 +880,7 @@ function Field({
           border: "1px solid rgba(255,255,255,0.05)",
           borderRadius: 10,
           fontFamily: "var(--font-body)",
-          fontSize: 14,
+          fontSize: 16,
           color: "#fff",
           outline: "none",
           transition: "border-color 0.3s, box-shadow 0.3s",
