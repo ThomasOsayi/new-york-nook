@@ -612,7 +612,7 @@ function OrderDetail({ order, onStatusChange }: {
 }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   Orders Page
+   Orders Page — MOBILE ENHANCED
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 export default function OrdersPage() {
   const isMobile = useIsMobile();
@@ -680,28 +680,30 @@ export default function OrdersPage() {
 
   return (
     <div style={{ minHeight: "100vh" }}>
-      {/* ── Top bar ── */}
+      {/* ── Mobile-Enhanced Header ── */}
       <header
         style={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          padding: isTablet ? "0 16px" : "0 28px",
-          height: 60,
+          padding: isTablet ? "12px 16px" : "0 28px",
+          height: isTablet ? "auto" : 60,
+          minHeight: isTablet ? 56 : 60,
           borderBottom: "1px solid rgba(255,255,255,0.06)",
           background: "rgba(255,255,255,0.015)",
           position: "sticky",
           top: 0,
           zIndex: 50,
           backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
         }}
       >
-        <div>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <h1
             style={{
               margin: 0,
               fontFamily: "var(--font-display)",
-              fontSize: 20,
+              fontSize: isTablet ? 18 : 20,
               fontWeight: 700,
               color: "#fff",
             }}
@@ -709,38 +711,72 @@ export default function OrdersPage() {
             Orders
           </h1>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          {/* Live indicator */}
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: isTablet ? 12 : 16, flexShrink: 0 }}>
+          {/* Enhanced Live indicator with green badge */}
+          <div 
+            style={{ 
+              display: "flex", 
+              alignItems: "center", 
+              gap: 6,
+              background: "rgba(95,191,122,0.1)",
+              border: "1px solid rgba(95,191,122,0.2)",
+              padding: isTablet ? "4px 10px" : "6px 12px",
+              borderRadius: 20,
+            }}
+          >
             <div
               style={{
-                width: 7,
-                height: 7,
+                width: 6,
+                height: 6,
                 borderRadius: "50%",
                 background: "#5FBF7A",
                 boxShadow: "0 0 8px rgba(95,191,122,0.5)",
                 animation: "pulse 2s ease-in-out infinite",
               }}
             />
-            <span style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", fontFamily: "var(--font-body)" }}>
+            <span style={{ fontSize: isTablet ? 11 : 12, color: "#5FBF7A", fontFamily: "var(--font-body)", fontWeight: 600 }}>
               Live
             </span>
+            {/* Show time inline on mobile */}
+            {isTablet && (
+              <span
+                style={{
+                  fontSize: 10,
+                  color: "rgba(255,255,255,0.4)",
+                  fontFamily: "monospace",
+                  marginLeft: 2,
+                }}
+              >
+                {currentTime.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+              </span>
+            )}
           </div>
-          <span
-            style={{
-              fontSize: 13,
-              color: "rgba(255,255,255,0.45)",
-              fontFamily: "monospace",
-            }}
-          >
-            {currentTime.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
-          </span>
+          {/* Desktop time */}
+          {!isTablet && (
+            <span
+              style={{
+                fontSize: 13,
+                color: "rgba(255,255,255,0.45)",
+                fontFamily: "monospace",
+              }}
+            >
+              {currentTime.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+            </span>
+          )}
         </div>
       </header>
 
-      <div style={{ padding: isTablet ? "20px 16px" : "20px 28px" }}>
-        {/* ── Stats row ── */}
-        <div className="dash-stats-row" style={{ display: "flex", gap: 14, marginBottom: 24 }}>
+      <div style={{ padding: isTablet ? "16px" : "20px 28px", paddingBottom: isTablet ? 80 : 20 }}>
+        {/* ── Stats Grid (Mobile: 2×2, Desktop: 1×4) ── */}
+        <div 
+          className="dash-stats-row" 
+          style={{ 
+            display: "flex", 
+            gap: isTablet ? 12 : 14, 
+            marginBottom: isTablet ? 20 : 24,
+            flexWrap: isTablet ? "wrap" : "nowrap",
+          }}
+        >
           <StatCard
             label="Active Orders"
             value={activeOrders.length}
@@ -761,7 +797,7 @@ export default function OrdersPage() {
           />
         </div>
 
-        {/* ── Filter tabs ── */}
+        {/* ── Horizontal Scrolling Filter Tabs ── */}
         <div className="dash-filter-tabs" style={{ display: "flex", gap: 6, marginBottom: 16 }}>
           {FILTER_TABS.map((tab) => {
             const count = orders.filter((o) => tab.statuses.includes(o.status)).length;
@@ -771,31 +807,35 @@ export default function OrdersPage() {
                 key={tab.key}
                 onClick={() => setFilter(tab.key)}
                 style={{
-                  padding: "10px 14px",
+                  padding: isTablet ? "8px 12px" : "10px 14px",
                   minHeight: 44,
-                  borderRadius: 8,
+                  borderRadius: isTablet ? 10 : 8,
                   border: active
                     ? "1px solid rgba(201,160,80,0.25)"
                     : "1px solid rgba(255,255,255,0.06)",
                   background: active ? "rgba(201,160,80,0.08)" : "rgba(255,255,255,0.02)",
                   color: active ? "#C9A050" : "rgba(255,255,255,0.4)",
-                  fontSize: 12,
+                  fontSize: isTablet ? 13 : 12,
                   fontWeight: 600,
                   cursor: "pointer",
                   fontFamily: "var(--font-body)",
                   display: "flex",
                   alignItems: "center",
                   gap: 6,
+                  whiteSpace: "nowrap",
+                  flexShrink: 0,
                 }}
               >
                 {tab.label}
                 <span
                   style={{
-                    background: active ? "rgba(201,160,80,0.15)" : "rgba(255,255,255,0.06)",
-                    padding: "1px 7px",
-                    borderRadius: 10,
+                    background: active ? "#C9A050" : "rgba(255,255,255,0.06)",
+                    color: active ? "rgb(var(--bg-primary))" : "rgba(255,255,255,0.4)",
+                    padding: "2px 7px",
+                    borderRadius: 12,
                     fontSize: 11,
                     fontFamily: "monospace",
+                    fontWeight: 700,
                   }}
                 >
                   {count}
@@ -805,7 +845,7 @@ export default function OrdersPage() {
           })}
         </div>
 
-        {/* ── Main grid: list + detail ── */}
+        {/* ── Main Layout: List + Detail ── */}
         <div
           className="dash-split-layout"
           style={{
@@ -815,13 +855,13 @@ export default function OrdersPage() {
             minHeight: "calc(100vh - 280px)",
           }}
         >
-          {/* Order list */}
+          {/* Order List */}
           <div
             style={{
-              background: "rgba(255,255,255,0.015)",
-              border: "1px solid rgba(255,255,255,0.05)",
+              background: isTablet ? "transparent" : "rgba(255,255,255,0.015)",
+              border: isTablet ? "none" : "1px solid rgba(255,255,255,0.05)",
               borderRadius: 14,
-              padding: 12,
+              padding: isTablet ? 0 : 12,
               overflowY: "auto",
               maxHeight: "calc(100vh - 280px)",
             }}
@@ -859,29 +899,33 @@ export default function OrdersPage() {
               </div>
             ) : (
               <>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: 10,
-                    padding: "0 4px",
-                  }}
-                >
-                  <span
+                {/* Order count header (desktop only) */}
+                {!isTablet && (
+                  <div
                     style={{
-                      fontSize: 11,
-                      color: "rgba(255,255,255,0.25)",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.08em",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: 10,
+                      padding: "0 4px",
                     }}
                   >
-                    {filtered.length} order{filtered.length !== 1 ? "s" : ""}
-                  </span>
-                  <span style={{ fontSize: 11, color: "rgba(255,255,255,0.2)" }}>
-                    Newest first
-                  </span>
-                </div>
+                    <span
+                      style={{
+                        fontSize: 11,
+                        color: "rgba(255,255,255,0.25)",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.08em",
+                      }}
+                    >
+                      {filtered.length} order{filtered.length !== 1 ? "s" : ""}
+                    </span>
+                    <span style={{ fontSize: 11, color: "rgba(255,255,255,0.2)" }}>
+                      Newest first
+                    </span>
+                  </div>
+                )}
+                {/* Order cards */}
                 {filtered.map((order) => (
                   <OrderCard
                     key={order.id}
@@ -894,7 +938,7 @@ export default function OrdersPage() {
             )}
           </div>
 
-          {/* Detail panel (desktop only) */}
+          {/* Detail Panel (Desktop Only) */}
           {!isTablet && (
             <div
               style={{
@@ -911,36 +955,103 @@ export default function OrdersPage() {
         </div>
       </div>
 
-      {/* Detail panel (mobile/tablet overlay) */}
+      {/* ── Mobile Bottom Sheet (Tablet/Mobile Only) ── */}
       {isTablet && selected && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 50, background: "rgba(8,6,3,0.98)", overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
-          <button
+        <>
+          {/* Overlay with backdrop blur */}
+          <div 
             onClick={() => setSelectedId(null)}
-            style={{
-              position: "sticky",
-              top: 0,
-              zIndex: 10,
-              width: "100%",
-              padding: "16px 20px",
+            style={{ 
+              position: "fixed", 
+              inset: 0, 
+              zIndex: 150, 
+              background: "rgba(0,0,0,0.6)",
+              backdropFilter: "blur(4px)",
+              WebkitBackdropFilter: "blur(4px)",
+            }} 
+          />
+          
+          {/* Bottom Sheet */}
+          <div 
+            style={{ 
+              position: "fixed", 
+              bottom: 0, 
+              left: 0, 
+              right: 0, 
+              zIndex: 151, 
+              background: "rgba(12,10,7,0.98)",
+              borderRadius: "24px 24px 0 0",
+              maxHeight: "85vh",
               display: "flex",
-              alignItems: "center",
-              gap: 8,
-              background: "rgba(8,6,3,0.98)",
-              borderBottom: "1px solid rgba(255,255,255,0.06)",
-              border: "none",
-              cursor: "pointer",
-              color: "#C9A050",
-              fontSize: 13,
-              fontFamily: "var(--font-body)",
+              flexDirection: "column",
+              paddingBottom: "env(safe-area-inset-bottom, 0px)",
+              boxShadow: "0 -8px 32px rgba(0,0,0,0.6)",
             }}
           >
-            &larr; Back to Orders
-          </button>
-          <OrderDetail order={selected} onStatusChange={handleStatusChange} />
-        </div>
+            {/* Drag Handle */}
+            <div 
+              style={{ 
+                width: 36, 
+                height: 4, 
+                background: "rgba(255,255,255,0.2)", 
+                borderRadius: 2, 
+                margin: "12px auto 0",
+                flexShrink: 0,
+              }} 
+            />
+            
+            {/* Sheet Header */}
+            <div
+              style={{
+                padding: "16px 20px",
+                borderBottom: "1px solid rgba(255,255,255,0.06)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                flexShrink: 0,
+              }}
+            >
+              <h2
+                style={{
+                  margin: 0,
+                  fontFamily: "var(--font-display)",
+                  fontSize: 18,
+                  fontWeight: 700,
+                  color: "#fff",
+                }}
+              >
+                {selected.orderNumber}
+              </h2>
+              <button
+                onClick={() => setSelectedId(null)}
+                style={{
+                  width: 32,
+                  height: 32,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "rgba(255,255,255,0.05)",
+                  border: "none",
+                  borderRadius: 8,
+                  color: "rgba(255,255,255,0.5)",
+                  fontSize: 20,
+                  cursor: "pointer",
+                  lineHeight: 1,
+                }}
+              >
+                ×
+              </button>
+            </div>
+            
+            {/* Scrollable Content */}
+            <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
+              <OrderDetail order={selected} onStatusChange={handleStatusChange} />
+            </div>
+          </div>
+        </>
       )}
 
-      {/* Pulse animation for live dot */}
+      {/* Pulse Animation */}
       <style>{`
         @keyframes pulse {
           0%, 100% { opacity: 1; }
