@@ -8,7 +8,7 @@ import { useCart, type CartItem } from "@/components/order/Cartcontext";
 import { useScrollY } from "@/hooks/useScrollY";
 import { useIsTablet } from "@/hooks/useIsMobile";
 import { categories } from "@/data/menu";
-import { createOrder } from "@/lib/order";
+import { getStripe } from "@/lib/stripe";
 
 /* ── Category label lookup ── */
 const catLabelMap: Record<string, string> = {};
@@ -76,38 +76,67 @@ export default function CheckoutPage() {
     setLoading(true);
 
     try {
-      const { id, orderNumber } = await createOrder({
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        phone: phone.trim(),
-        email: email.trim(),
-        items: items.map((i) => ({
-          name: i.name,
-          price: i.price,
-          qty: i.qty,
-          img: i.img,
-          categoryKey: i.categoryKey,
-        })),
-        subtotal,
-        discount,
-        ...(promo && {
-          promoCode: promo.code,
-          promoType: promo.type,
-          promoValue: promo.value,
+      // Create Stripe checkout session
+      const response = await fetch("/api/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: items.map((i) => ({
+            name: i.name,
+            price: i.price,
+            qty: i.qty,
+            img: i.img,
+            categoryKey: i.categoryKey,
+            desc: i.desc,
+          })),
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          phone: phone.trim(),
+          email: email.trim(),
+          subtotal,
+          discount,
+          tax,
+          packagingFee: PACKAGING_FEE,
+          tip: tipAmount,
+          total,
+          pickupTime: "ASAP (25–35 min)",
+          instructions: undefined, // Add instructions field if you have one in the UI
+          ...(promo && {
+            promoCode: promo.code,
+            promoType: promo.type,
+            promoValue: promo.value,
+          }),
         }),
-        tax,
-        packagingFee: PACKAGING_FEE,
-        tip: tipAmount,
-        total,
-        pickupTime: "ASAP (25–35 min)",
       });
 
-      clearCart();
-      router.push(`/order/confirmation?id=${id}&order=${orderNumber}`);
+      const data = await response.json();
+
+      if (!response.ok || data.error) {
+        throw new Error(data.error || "Failed to create checkout session");
+      }
+
+      // Redirect to Stripe Checkout (session URL is preferred; redirectToCheckout used as fallback)
+      if (data.url) {
+        window.location.href = data.url;
+        return;
+      }
+
+      const stripe = await getStripe();
+      if (!stripe) {
+        throw new Error("Stripe failed to load");
+      }
+      const s = stripe as unknown as { redirectToCheckout: (opts: { sessionId: string }) => Promise<{ error?: Error }> };
+      const { error: stripeError } = await s.redirectToCheckout({ sessionId: data.sessionId });
+      if (stripeError) {
+        throw stripeError;
+      }
+
+      // Note: cart will be cleared in the webhook after successful payment
+      // User will be redirected back from Stripe to /order/confirmation?session_id=xxx
     } catch (err: unknown) {
-      console.error("Order failed:", err);
+      console.error("Checkout failed:", err);
       const message = err instanceof Error ? err.message : "Unknown error occurred";
-      setError(`Something went wrong. Please try again.`);
+      setError(message);
       setLoading(false);
     }
   };

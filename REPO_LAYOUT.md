@@ -32,8 +32,10 @@ new-york-nook/
     │   │       └── route.ts
     │   ├── catering/
     │   │   └── page.tsx
-    │   ├── login/
+    │       ├── login/
     │   │   ├── layout.tsx
+    │   │   └── page.tsx
+    │   ├── reserve/
     │   │   └── page.tsx
     │   ├── dashboard/
     │   │   ├── layout.tsx
@@ -124,6 +126,7 @@ new-york-nook/
 | **`/order/checkout`** | Checkout form: customer info (first name, last name, phone, email), order summary, tip (15/18/20/25% or custom), subtotal/discount/tax/packaging/tip/total. Submits order to Firestore via `createOrder` (includes discount, promoCode, promoType, promoValue when promo applied), clears cart, redirects to confirmation. No payment processor (Stripe, etc.) — order is stored only. |
 | **`/order/confirmation`** | Order confirmation: expects query `id` (Firestore doc ID) and `order` (order number). Fetches order via `getOrder(orderId)`; shows order number, status, items, totals, pickup time; “Back to Home” / “Order Again”. Loading and error states. |
 | **`/login`** | Staff login: email + password form; `signIn()` from `auth.ts` (Firebase Auth, whitelist `ALLOWED_EMAILS`). On success redirect to `/dashboard`. Error handling for invalid credentials, unauthorized, too-many-requests. |
+| **`/reserve`** | Reservation booking page: 4-step flow (Date/Time → Table → Details → Confirmation). Reads tables, time slots, and rules from Firestore `settings/reservations`; writes bookings to `reservations` via `addDoc`. Dynamic SVG floor plan; calendar; party size; table selection with availability; guest name/phone/notes; auto-confirm or “we’ll confirm shortly” message. Navbar “Reserve” and ReservationSection CTA link here. |
 | **`/dashboard`** | Redirects to `/dashboard/orders`. |
 | **`/dashboard/orders`** | Kitchen orders dashboard: real-time Firestore `onSnapshot`; order list with filter tabs (Active, Pending, Preparing, Ready, Completed); stats; order detail panel with status progression and Cancel; `updateDoc` for status changes. No auth middleware. |
 | **`/dashboard/catering`** | Catering inquiries dashboard: real-time Firestore `onSnapshot` on `consultations`; filter tabs (All, New, Contacted, Tasting, Confirmed, Completed); stats (new, pipeline value estimate); inquiry detail panel with status progression (New → Contacted → Tasting → Confirmed → Completed); Cancel; `updateDoc` for status changes. |
@@ -153,6 +156,7 @@ new-york-nook/
 - **`order/confirmation/page.tsx`** — Confirmation at `/order/confirmation`: wraps content in `Suspense` with loading spinner fallback; renders `ConfirmationContent` (client component that reads `id` and `order` from query, fetches order with `getOrder(id)`, displays order details or error).
 - **`order/confirmation/ConfirmationContent.tsx`** — Client component: reads `id` and `order` from URL search params; fetches order via `getOrder(id)`; shows order number, status, items, totals, pickup time; "Back to Home" / "Order Again". Loading and error states.
 - **`catering/page.tsx`** — Full catering page at `/catering`: hero, services, packages, menu samples, gallery, FAQ; consultation form in modal; submits to `/api/consultation`; success shows reference number.
+- **`reserve/page.tsx`** — Reservation page at `/reserve`: 4-step wizard (date/time + party size → table selection on floor plan → guest name/phone/notes → confirmation). Loads `settings/reservations` from Firestore; saves to `reservations` collection; dynamic floor plan (SVG), closed days, advance booking days, time slots; confirmation screen with auto-confirm or call-back message.
 - **`login/layout.tsx`** — Passthrough layout (no wrapper).
 - **`login/page.tsx`** — Login form; `signIn()`; redirect to `/dashboard` on success.
 - **`dashboard/page.tsx`** — Server redirect to `/dashboard/orders`.
@@ -172,14 +176,14 @@ new-york-nook/
 
 | Section | File | What It Does |
 |---------|------|--------------|
-| **Navbar** | `Navbar.tsx` | Fixed nav; scroll-based background/blur/border; logo (N diamond + “NEW YORK NOOK”); desktop links + mobile hamburger with full-screen overlay; smooth scroll to sections; `useScrollY` for scroll state. |
+| **Navbar** | `Navbar.tsx` | Fixed nav; scroll-based background/blur/border; logo (N diamond + “NEW YORK NOOK”); desktop links + mobile hamburger with full-screen overlay; smooth scroll to sections on home; “Reserve” links to `/reserve`; `useScrollY` for scroll state. |
 | **Hero** | `Hero.tsx` | Full-height hero with parallax background, animated tagline/title/subtitle, CTAs (Reserve, Order, Menu), floating accent images (desktop), scroll indicator. |
 | **Signature Dishes** | `SigDishes.tsx` | Two-column section with auto-rotating carousel of signature dishes; prev/next buttons and indicator dots; `useInView` reveal. |
 | **Menu** | `MenuSection.tsx` | Category tabs with images (Cold Appetizers, Salads, Soups, etc.); sticky image + scrolling menu items; prices (or “MP” for market price); `fadeSlideIn` on items. |
 | **Gallery** | `GallerySection.tsx` | Masonry-style grid with variable row spans; hover overlays; lightbox with prev/next and close; `useInView` reveal. |
 | **Order** | `OrderSection.tsx` | Three-step explainer (Browse & Select → Customize & Pay → Pickup & Enjoy); full-width background image; `useInView` reveal; “Start Your Order” CTA links to `/order`. |
 | **Catering** | `CateringSection.tsx` | Image grid + copy; services list (Private Dining, Corporate, Wedding, Custom Menus); “View Packages” links to `/catering`; “Inquire Now” button (placeholder). |
-| **Reservations** | `ReservationSection.tsx` | Form: name, phone, date picker, time slots (5:00–9:30 PM), party size (1–8+); success state with confirmation message; copy (Tue–Sun 5–11 PM, parties 8+ call, smart casual); `useInView` reveal. |
+| **Reservations** | `ReservationSection.tsx` | CTA section driving to `/reserve`: copy (Tue–Sun 5–11 PM, parties 8+ call, smart casual); “Reserve a Table” (or similar) button links to `/reserve`; `useInView` reveal. Full booking flow lives on `/reserve`. |
 | **Contact** | `ContactSection.tsx` | Three blocks: Location (7065 Sunset Blvd), Reservations (tel link), Hours (Tue–Sun 5–11 PM); embedded Google Maps iframe (7065 Sunset Blvd); overlay with “Get Directions” link; `useInView` reveal. |
 | **Footer** | `Footer.tsx` | Brand block with logo and tagline; three link columns (Navigate: Menu, Gallery, Reservations, Order Online, Catering; Connect: Instagram, Facebook, Yelp, Google; Info: Private Events, Gift Cards, Press, **Login**); Login links to `/login`; others placeholder `#`; copyright; address (7065 Sunset Blvd). |
 
@@ -247,7 +251,7 @@ new-york-nook/
 5. **Dashboard auth** — `/dashboard` has no middleware or layout guard; anyone can visit. Add `onAuthStateChanged` redirect to `/login` or Next.js middleware if protection needed.
 6. **Dashboard nav** — All tabs have pages: Orders, Catering, Reservations, Inventory, Analytics, Settings.
 7. **CateringSection.tsx** — “View Packages” links to `/catering`. “Inquire Now” is placeholder; full form is on `/catering` page.
-8. **ReservationSection.tsx** — Replace mock submit with real backend (OpenTable, Resy, or custom API).
+8. **ReservationSection.tsx** — CTA links to `/reserve`; full booking flow and Firestore `reservations` write on reserve page. Done.
 9. **ContactSection.tsx** — Google Maps embed implemented; placeholder removed.
 10. **signatures.ts** — Replace Unsplash placeholders with real food photos.
 11. **gallery.ts** — Replace with real restaurant photography.
@@ -260,12 +264,13 @@ new-york-nook/
 1. **Home page** (`/`): Hero (Home) → SigDishes → Menu → Gallery → Order → Catering → Reserve → Contact → Footer.
 2. **Order flow**: `/order` (browse + cart) → CartSidebar “Proceed to Checkout” → `/order/checkout` (form + place order) → `createOrder()` → redirect to `/order/confirmation?id=<docId>&order=<orderNumber>` → confirmation page fetches order with `getOrder(id)`.
 3. **Order layout**: All `/order/*` routes share `CartProvider` (order layout).
-4. **Nav links (home)**: “Order” → `router.push("/order")`, “Catering” → `router.push("/catering")`. Other nav items smooth-scroll on home.
+4. **Nav links (home)**: “Order” → `/order`, “Catering” → `/catering`, “Reserve” → `/reserve`. Other nav items smooth-scroll on home.
 5. **Hero CTAs**: “Reserve a Table” → scroll to Reserve, “Order Takeout” → scroll to Order section, “View Menu” → scroll to Menu.
 6. **OrderSection**: “Start Your Order →” links to `/order`.
 7. **Footer links**: Login links to `/login`; others placeholder `#`.
 8. **Login flow**: Footer “Login” or direct `/login` → sign in (whitelisted email) → redirect to `/dashboard` (→ `/dashboard/orders`). Dashboard “Sign Out” → `signOut()` → redirect to `/login`. Dashboard sidebar: Orders, Catering, Reservations, Inventory, Analytics, Settings (all have pages).
-9. **Catering flow**: CateringSection “View Packages” → `/catering`; Navbar “Catering” → `/catering`; catering page “Request Consultation” opens modal; form POSTs to `/api/consultation` → Firestore + Resend email → success with reference number.
+9. **Reserve flow**: Navbar “Reserve” or ReservationSection CTA → `/reserve` → 4 steps (date/time → table → details → confirmation) → Firestore `reservations`; staff see bookings in `/dashboard/reservations`.
+10. **Catering flow**: CateringSection “View Packages” → `/catering`; Navbar “Catering” → `/catering`; catering page “Request Consultation” opens modal; form POSTs to `/api/consultation` → Firestore + Resend email → success with reference number.
 
 ---
 

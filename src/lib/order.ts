@@ -1,10 +1,7 @@
 import { db } from "@/lib/firebase";
 import {
-  collection,
-  addDoc,
   doc,
   getDoc,
-  serverTimestamp,
   type Timestamp,
 } from "firebase/firestore";
 
@@ -45,34 +42,15 @@ export interface OrderData {
   /* Special instructions */
   instructions?: string;
 
+  /* Payment (NEW) */
+  stripeSessionId?: string;
+  stripePaymentIntentId?: string;
+  paymentStatus?: "paid" | "pending" | "failed";
+
   /* Meta */
   status: "pending" | "confirmed" | "preparing" | "ready" | "picked_up" | "cancelled";
-  createdAt: Timestamp | ReturnType<typeof serverTimestamp>;
+  createdAt: Timestamp;
   orderNumber: string;
-}
-
-/* ── Generate readable order number ── */
-function generateOrderNumber(): string {
-  const now = new Date();
-  const datePart = `${(now.getMonth() + 1).toString().padStart(2, "0")}${now.getDate().toString().padStart(2, "0")}`;
-  const randomPart = Math.random().toString(36).substring(2, 6).toUpperCase();
-  return `NYN-${datePart}-${randomPart}`;
-}
-
-/* ── Create a new order ── */
-export async function createOrder(
-  data: Omit<OrderData, "status" | "createdAt" | "orderNumber">
-): Promise<{ id: string; orderNumber: string }> {
-  const orderNumber = generateOrderNumber();
-
-  const docRef = await addDoc(collection(db, "orders"), {
-    ...data,
-    status: "pending",
-    createdAt: serverTimestamp(),
-    orderNumber,
-  });
-
-  return { id: docRef.id, orderNumber };
 }
 
 /* ── Get order by Firestore doc ID ── */
@@ -80,4 +58,27 @@ export async function getOrder(orderId: string): Promise<OrderData | null> {
   const snap = await getDoc(doc(db, "orders", orderId));
   if (!snap.exists()) return null;
   return snap.data() as OrderData;
+}
+
+/* ── Get order by Stripe session ID (NEW) ── */
+export async function getOrderBySessionId(sessionId: string): Promise<OrderData | null> {
+  try {
+    // Note: This requires a Firestore index on stripeSessionId
+    // Firebase will prompt you to create it when first used
+    const { collection, query, where, getDocs } = await import("firebase/firestore");
+    
+    const q = query(
+      collection(db, "orders"),
+      where("stripeSessionId", "==", sessionId)
+    );
+    
+    const snap = await getDocs(q);
+    
+    if (snap.empty) return null;
+    
+    return snap.docs[0].data() as OrderData;
+  } catch (err) {
+    console.error("Failed to get order by session ID:", err);
+    return null;
+  }
 }

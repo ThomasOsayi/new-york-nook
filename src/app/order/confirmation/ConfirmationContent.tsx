@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { getOrder, type OrderData, type OrderItem } from "@/lib/order";
+import { getOrderBySessionId, type OrderData, type OrderItem } from "@/lib/order";
 import { useScrollY } from "@/hooks/useScrollY";
 import { categories } from "@/data/menu";
 
@@ -17,8 +17,7 @@ categories.forEach((c) => { catLabelMap[c.key] = c.label; });
    ══════════════════════════════════════════ */
 export default function ConfirmationContent() {
   const searchParams = useSearchParams();
-  const orderId = searchParams.get("id");
-  const orderNumber = searchParams.get("order");
+  const sessionId = searchParams.get("session_id"); // NEW: Get Stripe session ID
   const scrollY = useScrollY();
   const scrolled = scrollY > 10;
 
@@ -27,15 +26,35 @@ export default function ConfirmationContent() {
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    if (!orderId) { setError(true); setLoading(false); return; }
-    getOrder(orderId)
+    if (!sessionId) { 
+      setError(true); 
+      setLoading(false); 
+      return; 
+    }
+
+    // Fetch order by Stripe session ID
+    getOrderBySessionId(sessionId)
       .then((data: OrderData | null) => {
-        if (!data) setError(true);
-        else setOrder(data);
+        if (!data) {
+          // Order might not exist yet (webhook hasn't fired)
+          // Retry after a short delay
+          setTimeout(() => {
+            getOrderBySessionId(sessionId).then((retryData) => {
+              if (!retryData) setError(true);
+              else setOrder(retryData);
+              setLoading(false);
+            });
+          }, 2000);
+        } else {
+          setOrder(data);
+          setLoading(false);
+        }
       })
-      .catch(() => setError(true))
-      .finally(() => setLoading(false));
-  }, [orderId]);
+      .catch(() => {
+        setError(true);
+        setLoading(false);
+      });
+  }, [sessionId]);
 
   return (
     <div style={{ background: "rgb(var(--bg-primary))", minHeight: "100vh", overflow: "hidden" }}>
@@ -123,21 +142,26 @@ export default function ConfirmationContent() {
                 animation: "confirmSpin 0.6s linear infinite",
               }}
             />
+            <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "rgba(255,255,255,0.3)", marginTop: 20 }}>
+              Confirming your payment...
+            </p>
           </div>
         )}
 
         {/* Error */}
         {!loading && error && (
           <div style={{ textAlign: "center", paddingTop: 80 }}>
-            <p style={{ fontFamily: "var(--font-body)", fontSize: 16, color: "rgba(255,255,255,0.4)" }}>
+            <p style={{ fontFamily: "var(--font-body)", fontSize: 16, color: "rgba(255,255,255,0.4)", marginBottom: 8 }}>
               Order not found.
+            </p>
+            <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "rgba(255,255,255,0.2)", marginBottom: 32 }}>
+              If you just completed payment, please wait a moment and refresh the page.
             </p>
             <Link
               href="/order"
               className="btn-gold-filled"
               style={{
                 display: "inline-block",
-                marginTop: 24,
                 padding: "14px 32px",
                 borderRadius: 10,
                 fontSize: 12,
@@ -200,7 +224,7 @@ export default function ConfirmationContent() {
                   lineHeight: 1.6,
                 }}
               >
-                Thank you, {order.firstName}! Your order has been received.
+                Thank you, {order.firstName}! Your order has been received and paid.
               </p>
             </div>
 
@@ -221,24 +245,24 @@ export default function ConfirmationContent() {
                     Order Number
                   </div>
                   <div style={{ fontFamily: "var(--font-accent)", fontSize: 22, fontWeight: 700, color: "#C9A050", letterSpacing: 1 }}>
-                    {orderNumber || order.orderNumber}
+                    {order.orderNumber}
                   </div>
                 </div>
                 <div
                   style={{
                     padding: "8px 16px",
-                    background: "rgba(201,160,80,0.08)",
-                    border: "1px solid rgba(201,160,80,0.15)",
+                    background: "rgba(106,158,108,0.08)",
+                    border: "1px solid rgba(106,158,108,0.15)",
                     borderRadius: 40,
                     fontFamily: "var(--font-body)",
                     fontSize: 11,
                     fontWeight: 600,
-                    color: "#C9A050",
+                    color: "#6A9E6C",
                     letterSpacing: 1,
                     textTransform: "uppercase",
                   }}
                 >
-                  {order.status === "pending" ? "Pending" : order.status}
+                  ✓ Paid
                 </div>
               </div>
 
