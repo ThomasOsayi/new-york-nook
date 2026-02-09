@@ -59,91 +59,29 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Build line items for Stripe
-    const lineItems = items.map((item) => ({
-      price_data: {
-        currency: "usd",
-        product_data: {
-          name: item.name,
-          images: [item.img],
-          description: item.desc || undefined,
+    // Create a SINGLE line item for the entire order
+    // This avoids the negative amount issue with discounts
+    const lineItems = [
+      {
+        price_data: {
+          currency: "usd",
+          product_data: {
+            name: "New York Nook - Order",
+            description: `${items.length} item${items.length > 1 ? 's' : ''} • Pickup: ${pickupTime}`,
+          },
+          unit_amount: Math.round(total * 100), // Total amount in cents
         },
-        unit_amount: Math.round(item.price * 100), // Convert to cents
+        quantity: 1,
       },
-      quantity: item.qty,
-    }));
-
-    // Add tax as a line item
-    if (tax > 0) {
-      lineItems.push({
-        price_data: {
-          currency: "usd",
-          product_data: {
-            name: "Tax (9.5%)",
-            images: [],
-            description: undefined,
-          },
-          unit_amount: Math.round(tax * 100),
-        },
-        quantity: 1,
-      });
-    }
-
-    // Add packaging fee
-    if (packagingFee > 0) {
-      lineItems.push({
-        price_data: {
-          currency: "usd",
-          product_data: {
-            name: "Packaging Fee",
-            images: [],
-            description: undefined,
-          },
-          unit_amount: Math.round(packagingFee * 100),
-        },
-        quantity: 1,
-      });
-    }
-
-    // Add tip
-    if (tip > 0) {
-      lineItems.push({
-        price_data: {
-          currency: "usd",
-          product_data: {
-            name: "Tip",
-            images: [],
-            description: undefined,
-          },
-          unit_amount: Math.round(tip * 100),
-        },
-        quantity: 1,
-      });
-    }
-
-    // Add discount as negative line item (if applicable)
-    if (discount > 0) {
-      lineItems.push({
-        price_data: {
-          currency: "usd",
-          product_data: {
-            name: `Discount${promoCode ? ` (${promoCode})` : ""}`,
-            images: [],
-            description: undefined,
-          },
-          unit_amount: -Math.round(discount * 100), // Negative amount
-        },
-        quantity: 1,
-      });
-    }
+    ];
 
     // Create Stripe checkout session
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       line_items: lineItems,
       mode: "payment",
-      success_url: `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/order/confirmation?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/order/checkout`,
+      success_url: `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3001"}/order/confirmation?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3001"}/order/checkout`,
       customer_email: email,
       metadata: {
         // Store all order data in metadata for webhook
@@ -162,16 +100,28 @@ export async function POST(req: NextRequest) {
         promoCode: promoCode || "",
         promoType: promoType || "",
         promoValue: promoValue?.toString() || "",
-        // Store items as JSON string (Stripe metadata is limited to strings)
-        items: JSON.stringify(items),
+        // Strip descriptions and shorten URLs to fit Stripe's 500 char metadata limit
+        items: JSON.stringify(
+          items.map((item) => ({
+            name: item.name,
+            price: item.price,
+            qty: item.qty,
+            categoryKey: item.categoryKey,
+            // Store just the image ID instead of full URL
+            img: item.img.includes('unsplash')
+              ? item.img.split('photo-')[1]?.split('?')[0] || item.img
+              : item.img,
+          }))
+        ),
       },
     });
 
     return NextResponse.json({ sessionId: session.id, url: session.url });
-  } catch (error) {
-    console.error("Stripe checkout session creation failed:", error);
+  } catch (error: any) {
+    console.error("❌ Stripe checkout session creation failed:", error);
+    console.error("❌ Error details:", error?.message || error);
     return NextResponse.json(
-      { error: "Failed to create checkout session" },
+      { error: error?.message || "Failed to create checkout session" },
       { status: 500 }
     );
   }

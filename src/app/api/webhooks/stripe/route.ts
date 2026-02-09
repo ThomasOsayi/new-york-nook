@@ -60,7 +60,14 @@ export async function POST(req: NextRequest) {
     try {
       // Extract order data from metadata
       const metadata = session.metadata!;
-      const items = JSON.parse(metadata.items);
+      // Parse items and reconstruct full image URLs
+      const items = JSON.parse(metadata.items).map((item: any) => ({
+        ...item,
+        // Reconstruct full Unsplash URL if needed
+        img: item.img.includes('http')
+          ? item.img
+          : `https://images.unsplash.com/photo-${item.img}?w=400&q=80`,
+      }));
 
       const orderNumber = generateOrderNumber();
 
