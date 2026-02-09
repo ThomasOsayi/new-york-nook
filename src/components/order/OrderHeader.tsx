@@ -253,6 +253,7 @@ export default function OrderHeader() {
           <button
             className="order-cart-btn-mobile"
             aria-label={`View cart, ${totalItems} items`}
+            onClick={() => window.dispatchEvent(new CustomEvent("open-cart-sheet"))}
             style={{
               display: "none", /* shown via media query */
               position: "relative",

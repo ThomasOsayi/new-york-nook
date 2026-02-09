@@ -36,8 +36,27 @@ export default function CartSidebar() {
 
   /* ── Mobile sheet state ── */
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [sheetClosing, setSheetClosing] = useState(false);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const backdropRef = useRef<HTMLDivElement>(null);
   const touchStartY = useRef(0);
   const touchDeltaY = useRef(0);
+  const isDragging = useRef(false);
+
+  const closeSheet = () => {
+    setSheetClosing(true);
+    setTimeout(() => {
+      setSheetOpen(false);
+      setSheetClosing(false);
+    }, 300);
+  };
+
+  /* Listen for open-cart-sheet event from OrderHeader mobile button */
+  useEffect(() => {
+    const handler = () => setSheetOpen(true);
+    window.addEventListener("open-cart-sheet", handler);
+    return () => window.removeEventListener("open-cart-sheet", handler);
+  }, []);
 
   /* Lock body scroll when sheet is open */
   useEffect(() => {
@@ -473,23 +492,89 @@ export default function CartSidebar() {
           {/* Backdrop */}
           <div
             className="cart-sheet-backdrop"
-            onClick={() => setSheetOpen(false)}
+            ref={backdropRef}
+            onClick={() => closeSheet()}
             style={{
               position: "fixed",
               inset: 0,
               zIndex: 150,
               background: "rgba(0,0,0,0.7)",
               backdropFilter: "blur(4px)",
-              animation: "cartFadeIn 0.25s ease",
+              animation: sheetClosing ? "none" : "cartFadeIn 0.25s ease",
+              opacity: sheetClosing ? 0 : 1,
+              transition: sheetClosing ? "opacity 0.3s ease" : "none",
             }}
           />
 
           {/* Sheet */}
           <div
             className="cart-sheet"
-            onTouchStart={(e) => { touchStartY.current = e.touches[0].clientY; touchDeltaY.current = 0; }}
-            onTouchMove={(e) => { touchDeltaY.current = e.touches[0].clientY - touchStartY.current; }}
-            onTouchEnd={() => { if (touchDeltaY.current > 80) setSheetOpen(false); touchDeltaY.current = 0; }}
+            ref={sheetRef}
+            onTouchStart={(e) => {
+              touchStartY.current = e.touches[0].clientY;
+              touchDeltaY.current = 0;
+              isDragging.current = false;
+              if (sheetRef.current) {
+                sheetRef.current.style.transition = "none";
+              }
+            }}
+            onTouchMove={(e) => {
+              const delta = e.touches[0].clientY - touchStartY.current;
+              touchDeltaY.current = delta;
+              // Only allow dragging downward
+              const clampedDelta = Math.max(0, delta);
+              if (clampedDelta > 10) isDragging.current = true;
+              if (sheetRef.current && clampedDelta > 0) {
+                // Apply rubber-band resistance after 40px
+                const translated = clampedDelta < 40
+                  ? clampedDelta
+                  : 40 + (clampedDelta - 40) * 0.4;
+                sheetRef.current.style.transform = `translateY(${translated}px)`;
+              }
+              if (backdropRef.current && clampedDelta > 0) {
+                const opacity = Math.max(0, 1 - clampedDelta / 400);
+                backdropRef.current.style.opacity = String(opacity);
+              }
+            }}
+            onTouchEnd={() => {
+              if (sheetRef.current) {
+                sheetRef.current.style.transition = "transform 0.3s cubic-bezier(0.22,1,0.36,1)";
+              }
+              if (backdropRef.current) {
+                backdropRef.current.style.transition = "opacity 0.3s ease";
+              }
+              if (touchDeltaY.current > 100) {
+                // Dismiss
+                if (sheetRef.current) {
+                  sheetRef.current.style.transform = "translateY(100%)";
+                }
+                if (backdropRef.current) {
+                  backdropRef.current.style.opacity = "0";
+                }
+                setTimeout(() => {
+                  setSheetOpen(false);
+                  // Reset transforms
+                  if (sheetRef.current) {
+                    sheetRef.current.style.transform = "";
+                    sheetRef.current.style.transition = "";
+                  }
+                  if (backdropRef.current) {
+                    backdropRef.current.style.opacity = "";
+                    backdropRef.current.style.transition = "";
+                  }
+                }, 300);
+              } else {
+                // Snap back
+                if (sheetRef.current) {
+                  sheetRef.current.style.transform = "translateY(0)";
+                }
+                if (backdropRef.current) {
+                  backdropRef.current.style.opacity = "1";
+                }
+              }
+              touchDeltaY.current = 0;
+              isDragging.current = false;
+            }}
             style={{
               position: "fixed",
               bottom: 0,
@@ -502,13 +587,74 @@ export default function CartSidebar() {
               display: "flex",
               flexDirection: "column",
               boxShadow: "0 -20px 80px rgba(0,0,0,0.5)",
-              animation: "cartSlideUp 0.35s cubic-bezier(0.16,1,0.3,1)",
+              animation: sheetClosing ? "none" : "cartSlideUp 0.35s cubic-bezier(0.16,1,0.3,1)",
+              transform: sheetClosing ? "translateY(100%)" : "translateY(0)",
+              transition: sheetClosing ? "transform 0.3s cubic-bezier(0.22,1,0.36,1)" : "none",
             }}
           >
-            {/* Drag handle */}
-            <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 0", flexShrink: 0 }}>
-              <div style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.15)" }} />
-            </div>
+            {/* Drag handle + Header — both act as drag zone on desktop */}
+            <div
+              className="cart-sheet-drag-zone"
+              style={{ flexShrink: 0, userSelect: "none" }}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                touchStartY.current = e.clientY;
+                touchDeltaY.current = 0;
+                isDragging.current = false;
+                if (sheetRef.current) {
+                  sheetRef.current.style.transition = "none";
+                }
+
+                const onMouseMove = (ev: MouseEvent) => {
+                  const delta = ev.clientY - touchStartY.current;
+                  touchDeltaY.current = delta;
+                  const clampedDelta = Math.max(0, delta);
+                  if (clampedDelta > 10) isDragging.current = true;
+                  if (sheetRef.current && clampedDelta > 0) {
+                    const translated = clampedDelta < 40
+                      ? clampedDelta
+                      : 40 + (clampedDelta - 40) * 0.4;
+                    sheetRef.current.style.transform = `translateY(${translated}px)`;
+                  }
+                  if (backdropRef.current && clampedDelta > 0) {
+                    const opacity = Math.max(0, 1 - clampedDelta / 400);
+                    backdropRef.current.style.opacity = String(opacity);
+                  }
+                };
+
+                const onMouseUp = () => {
+                  document.removeEventListener("mousemove", onMouseMove);
+                  document.removeEventListener("mouseup", onMouseUp);
+                  if (sheetRef.current) {
+                    sheetRef.current.style.transition = "transform 0.3s cubic-bezier(0.22,1,0.36,1)";
+                  }
+                  if (backdropRef.current) {
+                    backdropRef.current.style.transition = "opacity 0.3s ease";
+                  }
+                  if (touchDeltaY.current > 100) {
+                    if (sheetRef.current) sheetRef.current.style.transform = "translateY(100%)";
+                    if (backdropRef.current) backdropRef.current.style.opacity = "0";
+                    setTimeout(() => {
+                      setSheetOpen(false);
+                      if (sheetRef.current) { sheetRef.current.style.transform = ""; sheetRef.current.style.transition = ""; }
+                      if (backdropRef.current) { backdropRef.current.style.opacity = ""; backdropRef.current.style.transition = ""; }
+                    }, 300);
+                  } else {
+                    if (sheetRef.current) sheetRef.current.style.transform = "translateY(0)";
+                    if (backdropRef.current) backdropRef.current.style.opacity = "1";
+                  }
+                  touchDeltaY.current = 0;
+                  isDragging.current = false;
+                };
+
+                document.addEventListener("mousemove", onMouseMove);
+                document.addEventListener("mouseup", onMouseUp);
+              }}
+            >
+              {/* Handle pill */}
+              <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 0" }}>
+                <div className="cart-drag-pill" style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.15)", transition: "all 0.2s ease" }} />
+              </div>
 
             {/* Header */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid rgba(255,255,255,0.04)", flexShrink: 0 }}>
@@ -517,7 +663,8 @@ export default function CartSidebar() {
                 <div style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "rgba(255,255,255,0.25)", fontWeight: 300 }}>{totalItems} item{totalItems !== 1 ? "s" : ""}</div>
               </div>
               <button
-                onClick={() => setSheetOpen(false)}
+                onClick={() => closeSheet()}
+                onMouseDown={(e) => e.stopPropagation()}
                 style={{
                   width: 36,
                   height: 36,
@@ -536,6 +683,7 @@ export default function CartSidebar() {
                 ✕
               </button>
             </div>
+            </div>{/* end drag zone */}
 
             {/* Scrollable body */}
             <div style={{ flex: 1, overflowY: "auto", padding: "0 20px", WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}>
@@ -636,7 +784,19 @@ export default function CartSidebar() {
         }
 
         /* Hide scrollbar in sheet body */
-        .cart-sheet > div:nth-child(3)::-webkit-scrollbar { display: none; }
+        .cart-sheet > div:nth-child(2)::-webkit-scrollbar { display: none; }
+
+        /* Drag handle hover hint on desktop */
+        .cart-sheet-drag-zone:hover .cart-drag-pill {
+          background: rgba(255,255,255,0.3) !important;
+          width: 48px !important;
+        }
+        .cart-sheet-drag-zone {
+          cursor: grab;
+        }
+        .cart-sheet-drag-zone:active {
+          cursor: grabbing;
+        }
 
         /* Touch feedback on qty buttons */
         @media (hover: none) and (pointer: coarse) {
