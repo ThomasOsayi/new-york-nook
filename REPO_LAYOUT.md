@@ -44,6 +44,8 @@ new-york-nook/
     │   │   │   └── page.tsx
     │   │   ├── inventory/
     │   │   │   └── page.tsx
+    │   │   ├── reservations/
+    │   │   │   └── page.tsx
     │   │   ├── analytics/
     │   │   │   └── page.tsx
     │   │   └── settings/
@@ -126,8 +128,9 @@ new-york-nook/
 | **`/dashboard/orders`** | Kitchen orders dashboard: real-time Firestore `onSnapshot`; order list with filter tabs (Active, Pending, Preparing, Ready, Completed); stats; order detail panel with status progression and Cancel; `updateDoc` for status changes. No auth middleware. |
 | **`/dashboard/catering`** | Catering inquiries dashboard: real-time Firestore `onSnapshot` on `consultations`; filter tabs (All, New, Contacted, Tasting, Confirmed, Completed); stats (new, pipeline value estimate); inquiry detail panel with status progression (New → Contacted → Tasting → Confirmed → Completed); Cancel; `updateDoc` for status changes. |
 | **`/dashboard/inventory`** | Menu item status dashboard: real-time Firestore `onSnapshot` on `inventory`; items from `menu.ts` with status (Available, Running Low, Out); category filter, search; single-item status change via `setDoc`; “Reset All” via `writeBatch`; activity log (session); toast notifications. |
+| **`/dashboard/reservations`** | Reservations dashboard: real-time Firestore `onSnapshot` on `reservations`; filter tabs (Active, Confirmed, Seated, Completed, No Show, Cancelled); date filter (today, tomorrow, all); list + detail panel; status progression (confirmed → seated → completed); table assignment; update via `updateDoc`. Timeline heat strip; table inventory (T1–T10, PDR). |
 | **`/dashboard/analytics`** | Analytics dashboard: real-time `onSnapshot` on `orders`, `consultations`, `inventory`; period filter (daily, weekly, monthly); revenue, order count, avg order, tips, promo usage; catering pipeline value; inventory 86 count; charts and breakdowns. |
-| **`/dashboard/settings`** | Settings dashboard: three tabs. (1) **Restaurant Hours** — open/close per day, online ordering toggle; Firestore `settings/hours`. (2) **Pickup Slots** — configurable pickup windows (ASAP, 30–45 min, etc.), min/max minutes, maxOrders, defaultLeadTime, maxConcurrentOrders; Firestore `settings/pickup`. (3) **Promo Codes** — list with active toggle, delete; create via `PromoCreateModal` (3-step wizard: code + type, value, limits + expiry); Firestore `promoCodes` collection. |
+| **`/dashboard/settings`** | Settings dashboard: four tabs. (1) **Restaurant Hours** — open/close per day, online ordering toggle; Firestore `settings/hours`. (2) **Pickup Slots** — configurable pickup windows (ASAP, 30–45 min, etc.), min/max minutes, maxOrders, defaultLeadTime, maxConcurrentOrders; Firestore `settings/pickup`. (3) **Promo Codes** — list with active toggle, delete; create via `PromoCreateModal` (3-step wizard: code + type, value, limits + expiry); Firestore `promoCodes`. (4) **Reservations** — table inventory, time slots, booking rules; Firestore `settings/reservations`. |
 | **`/catering`** | Full catering page: hero, services (Private Dining, Corporate, Wedding, Custom Menus), experience highlights, pricing packages (Zakuski $85, Tsar $165, Grand Feast $250), sample menu, gallery, FAQ, consultation form modal. Form POSTs to `/api/consultation`; saves to Firestore; sends email via Resend; success state with reference number. Navbar with links to home sections and `/catering`. |
 
 ---
@@ -153,12 +156,13 @@ new-york-nook/
 - **`login/layout.tsx`** — Passthrough layout (no wrapper).
 - **`login/page.tsx`** — Login form; `signIn()`; redirect to `/dashboard` on success.
 - **`dashboard/page.tsx`** — Server redirect to `/dashboard/orders`.
-- **`dashboard/layout.tsx`** — Sidebar nav (Orders, Catering, Inventory, Analytics, Settings); collapsible; uses `useIsTablet()` for responsive behavior; logo links to `/`; Sign Out → `signOut()` + redirect to `/login`. All nav items have pages.
+- **`dashboard/layout.tsx`** — Sidebar nav (Orders, Catering, Reservations, Inventory, Analytics, Settings); collapsible; uses `useIsTablet()` for responsive behavior; logo links to `/`; Sign Out → `signOut()` + redirect to `/login`. All nav items have pages.
 - **`dashboard/orders/page.tsx`** — Orders management: real-time list, filters, stats, order detail, status updates via Firestore `updateDoc`.
 - **`dashboard/catering/page.tsx`** — Catering inquiries: real-time list from `consultations`, filters, stats, detail panel, status progression.
+- **`dashboard/reservations/page.tsx`** — Reservations management: real-time list from Firestore `reservations`; filter by status (Active, Confirmed, Seated, Completed, No Show, Cancelled) and date (today, tomorrow, all); detail panel with status progression and table assignment; timeline heat strip; table inventory.
 - **`dashboard/inventory/page.tsx`** — Inventory: menu item status (available/low/86), Firestore `inventory`, category filter, search, Reset All batch.
 - **`dashboard/analytics/page.tsx`** — Analytics: real-time orders, consultations, inventory; period (daily/weekly/monthly); revenue, tips, promo usage, catering pipeline, charts.
-- **`dashboard/settings/page.tsx`** — Settings: Restaurant Hours (`settings/hours`), Pickup Slots (`settings/pickup`), Promo Codes (`promoCodes`); PromoCreateModal for new promos.
+- **`dashboard/settings/page.tsx`** — Settings: four tabs — Restaurant Hours (`settings/hours`), Pickup Slots (`settings/pickup`), Promo Codes (`promoCodes`), Reservations (`settings/reservations` — tables, time slots, booking rules); PromoCreateModal for new promos.
 - **`dashboard/settings/PromoCreateModal.tsx`** — 3-step wizard: code + type (percent/fixed), value, limits + expiry; writes to Firestore `promoCodes`.
 - **`globals.css`** — CSS custom properties for brand palette (gold, gold-light, gold-dark, bg-primary, bg-secondary, bg-tertiary, bg-elevated); typography (Playfair Display, DM Sans, Lora); form resets; shared button classes (`.btn-gold-outline`, `.btn-gold-filled`); keyframe animations (`fadeSlideIn`, `fadeUp`, `scrollBounce`, `heroFloat`); scrollbar styling; responsive breakpoints (≈900px).
 
@@ -241,7 +245,7 @@ new-york-nook/
 3. **CartSidebar.tsx** — “Proceed to Checkout” is wired to `/order/checkout`. Done.
 4. **Checkout** — Orders are stored in Firestore only; no payment processor (Stripe, Square, etc.) integrated. Add payment if required.
 5. **Dashboard auth** — `/dashboard` has no middleware or layout guard; anyone can visit. Add `onAuthStateChanged` redirect to `/login` or Next.js middleware if protection needed.
-6. **Dashboard nav** — All tabs have pages: Orders, Catering, Inventory, Analytics, Settings. No Staff route (optional).
+6. **Dashboard nav** — All tabs have pages: Orders, Catering, Reservations, Inventory, Analytics, Settings.
 7. **CateringSection.tsx** — “View Packages” links to `/catering`. “Inquire Now” is placeholder; full form is on `/catering` page.
 8. **ReservationSection.tsx** — Replace mock submit with real backend (OpenTable, Resy, or custom API).
 9. **ContactSection.tsx** — Google Maps embed implemented; placeholder removed.
@@ -260,7 +264,7 @@ new-york-nook/
 5. **Hero CTAs**: “Reserve a Table” → scroll to Reserve, “Order Takeout” → scroll to Order section, “View Menu” → scroll to Menu.
 6. **OrderSection**: “Start Your Order →” links to `/order`.
 7. **Footer links**: Login links to `/login`; others placeholder `#`.
-8. **Login flow**: Footer “Login” or direct `/login` → sign in (whitelisted email) → redirect to `/dashboard` (→ `/dashboard/orders`). Dashboard “Sign Out” → `signOut()` → redirect to `/login`. Dashboard sidebar: Orders, Catering, Inventory, Analytics, Settings (all have pages).
+8. **Login flow**: Footer “Login” or direct `/login` → sign in (whitelisted email) → redirect to `/dashboard` (→ `/dashboard/orders`). Dashboard “Sign Out” → `signOut()` → redirect to `/login`. Dashboard sidebar: Orders, Catering, Reservations, Inventory, Analytics, Settings (all have pages).
 9. **Catering flow**: CateringSection “View Packages” → `/catering`; Navbar “Catering” → `/catering`; catering page “Request Consultation” opens modal; form POSTs to `/api/consultation` → Firestore + Resend email → success with reference number.
 
 ---

@@ -40,6 +40,8 @@ export default function Navbar({ onNav }: NavbarProps) {
         router.push("/order");
       } else if (label === "Catering") {
         router.push("/catering");
+      } else if (label === "Reserve") {
+        router.push("/reserve");
       } else {
         onNav(label);
       }
