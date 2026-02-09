@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
+import { getServerStripe } from "@/lib/stripe";
 import type { CartItem } from "@/components/order/Cartcontext";
 
 interface PaymentIntentRequestBody {
@@ -58,6 +58,9 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Get server-side Stripe instance
+    const stripe = getServerStripe();
 
     // Create Payment Intent
     const paymentIntent = await stripe.paymentIntents.create({
