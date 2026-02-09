@@ -13,83 +13,21 @@ categories.forEach((c) => { catLabelMap[c.key] = c.label; });
 const TAX_RATE = 0.095;
 const PACKAGING_FEE = 2;
 
-/* ══════════════════════════════════════════
-   CartSidebar
-   Desktop: sticky sidebar (unchanged)
-   Mobile:  fixed bottom bar + slide-up sheet
-   ══════════════════════════════════════════ */
-export default function CartSidebar() {
-  const {
-    items,
-    updateQty,
-    removeItem,
-    promo,
-    promoLoading,
-    promoError,
-    applyPromo,
-    removePromo,
-  } = useCart();
+/* ═══════════════════════════════════════════
+   Extracted Sub-components
+   (defined OUTSIDE CartSidebar to prevent
+    remounting on parent re-render)
+   ═══════════════════════════════════════════ */
 
-  const [activeTime, setActiveTime] = useState(0);
-  const [showInstructions, setShowInstructions] = useState(false);
-  const [promoInput, setPromoInput] = useState("");
-
-  /* ── Mobile sheet state ── */
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const [sheetClosing, setSheetClosing] = useState(false);
-  const sheetRef = useRef<HTMLDivElement>(null);
-  const backdropRef = useRef<HTMLDivElement>(null);
-  const touchStartY = useRef(0);
-  const touchDeltaY = useRef(0);
-  const isDragging = useRef(false);
-
-  const closeSheet = () => {
-    setSheetClosing(true);
-    setTimeout(() => {
-      setSheetOpen(false);
-      setSheetClosing(false);
-    }, 300);
-  };
-
-  /* Listen for open-cart-sheet event from OrderHeader mobile button */
-  useEffect(() => {
-    const handler = () => setSheetOpen(true);
-    window.addEventListener("open-cart-sheet", handler);
-    return () => window.removeEventListener("open-cart-sheet", handler);
-  }, []);
-
-  /* Lock body scroll when sheet is open */
-  useEffect(() => {
-    if (sheetOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => { document.body.style.overflow = ""; };
-  }, [sheetOpen]);
-
-  /* ── Calculations ── */
-  const totalItems = items.reduce((sum: number, i: CartItem) => sum + i.qty, 0);
-  const subtotal = items.reduce((sum: number, i: CartItem) => sum + i.price * i.qty, 0);
-  const discount = promo ? promo.discount : 0;
-  const taxableSubtotal = subtotal - discount;
-  const tax = taxableSubtotal * TAX_RATE;
-  const total = taxableSubtotal + tax + (items.length > 0 ? PACKAGING_FEE : 0);
-
+/* ── Pickup Time Selector ── */
+function PickupTimeSelector({ activeTime, setActiveTime }: { activeTime: number; setActiveTime: (i: number) => void }) {
   const timeOptions = [
     { label: "ASAP", value: "25–35 min" },
     { label: "Today", value: "6:30 PM" },
     { label: "Today", value: "7:00 PM" },
   ];
 
-  const handleApplyPromo = async () => {
-    const success = await applyPromo(promoInput, subtotal);
-    if (success) setPromoInput("");
-  };
-
-  /* ── Shared sub-components ── */
-
-  const PickupTimeSelector = () => (
+  return (
     <div style={{ padding: "14px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
       <div style={{ fontFamily: "var(--font-body)", fontSize: 10, fontWeight: 600, letterSpacing: 2.5, textTransform: "uppercase", color: "rgba(255,255,255,0.2)", marginBottom: 10 }}>
         Pickup Time
@@ -123,8 +61,54 @@ export default function CartSidebar() {
       </div>
     </div>
   );
+}
 
-  const CartItemRow = ({ item }: { item: CartItem }) => (
+/* ── Cart Item Row ── */
+function CartItemRow({
+  item,
+  updateQty,
+  removeItem,
+  variant = "sheet",
+}: {
+  item: CartItem;
+  updateQty: (name: string, categoryKey: string, qty: number) => void;
+  removeItem: (name: string, categoryKey: string) => void;
+  variant?: "sheet" | "desktop";
+}) {
+  if (variant === "desktop") {
+    return (
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "50px 1fr auto",
+          gap: 14,
+          alignItems: "flex-start",
+          padding: "16px 0",
+          borderBottom: "1px solid rgba(255,255,255,0.04)",
+        }}
+      >
+        <div style={{ width: 50, height: 50, borderRadius: 10, overflow: "hidden", border: "1px solid rgba(255,255,255,0.06)", position: "relative" }}>
+          <Image src={item.img} alt={item.name} width={50} height={50} style={{ objectFit: "cover" }} />
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontFamily: "var(--font-display)", fontSize: 15, fontWeight: 500, color: "#fff", marginBottom: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</div>
+          <div style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "rgba(255,255,255,0.2)", fontWeight: 300, marginBottom: 8 }}>{catLabelMap[item.categoryKey] ?? ""}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <button onClick={() => { if (item.qty <= 1) removeItem(item.name, item.categoryKey); else updateQty(item.name, item.categoryKey, item.qty - 1); }} style={desktopQtyBtnStyle} onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(183,143,82,0.3)"; e.currentTarget.style.color = "#C9A050"; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)"; e.currentTarget.style.color = "rgba(255,255,255,0.45)"; }}>−</button>
+            <span style={{ fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 700, color: "#fff", minWidth: 14, textAlign: "center" }}>{item.qty}</span>
+            <button onClick={() => updateQty(item.name, item.categoryKey, item.qty + 1)} style={desktopQtyBtnStyle} onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(183,143,82,0.3)"; e.currentTarget.style.color = "#C9A050"; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)"; e.currentTarget.style.color = "rgba(255,255,255,0.45)"; }}>+</button>
+          </div>
+        </div>
+        <div style={{ textAlign: "right" }}>
+          <div style={{ fontFamily: "var(--font-accent)", fontSize: 18, fontWeight: 600, color: "#C9A050" }}>${(item.price * item.qty).toFixed(0)}</div>
+          <button onClick={() => removeItem(item.name, item.categoryKey)} style={{ fontFamily: "var(--font-body)", fontSize: 10, color: "rgba(255,255,255,0.15)", background: "none", border: "none", cursor: "pointer", marginTop: 6, transition: "color 0.2s", letterSpacing: 0.5, minHeight: 36, padding: "8px 4px" }} onMouseEnter={(e) => (e.currentTarget.style.color = "#a85454")} onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.15)")}>Remove</button>
+        </div>
+      </div>
+    );
+  }
+
+  // Sheet variant
+  return (
     <div
       style={{
         display: "grid",
@@ -175,8 +159,27 @@ export default function CartSidebar() {
       </div>
     </div>
   );
+}
 
-  const PromoSection = () => (
+/* ── Promo Section ── */
+function PromoSection({
+  promo,
+  promoInput,
+  setPromoInput,
+  promoLoading,
+  promoError,
+  handleApplyPromo,
+  removePromo,
+}: {
+  promo: { code: string; type: string; value: number; discount: number } | null;
+  promoInput: string;
+  setPromoInput: (val: string) => void;
+  promoLoading: boolean;
+  promoError: string;
+  handleApplyPromo: () => void;
+  removePromo: () => void;
+}) {
+  return (
     <div style={{ padding: "14px 0 8px" }}>
       <div style={{ fontFamily: "var(--font-body)", fontSize: 10, fontWeight: 600, letterSpacing: 2.5, textTransform: "uppercase", color: "rgba(255,255,255,0.2)", marginBottom: 10 }}>
         Promo Code
@@ -260,8 +263,25 @@ export default function CartSidebar() {
       )}
     </div>
   );
+}
 
-  const TotalsBlock = ({ showCheckout = true }: { showCheckout?: boolean }) => (
+/* ── Totals Block ── */
+function TotalsBlock({
+  items,
+  subtotal,
+  tax,
+  total,
+  promo,
+  showCheckout = true,
+}: {
+  items: CartItem[];
+  subtotal: number;
+  tax: number;
+  total: number;
+  promo: { code: string; type: string; value: number; discount: number } | null;
+  showCheckout?: boolean;
+}) {
+  return (
     <>
       {items.length > 0 ? (
         <>
@@ -312,6 +332,94 @@ export default function CartSidebar() {
       )}
     </>
   );
+}
+
+/* ══════════════════════════════════════════
+   CartSidebar
+   Desktop: sticky sidebar (unchanged)
+   Mobile:  fixed bottom bar + slide-up sheet
+   ══════════════════════════════════════════ */
+export default function CartSidebar() {
+  const {
+    items,
+    updateQty,
+    removeItem,
+    promo,
+    promoLoading,
+    promoError,
+    applyPromo,
+    removePromo,
+  } = useCart();
+
+  const [activeTime, setActiveTime] = useState(0);
+  const [showInstructions, setShowInstructions] = useState(false);
+  const [promoInput, setPromoInput] = useState("");
+
+  /* ── Mobile sheet state ── */
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [sheetClosing, setSheetClosing] = useState(false);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const backdropRef = useRef<HTMLDivElement>(null);
+  const touchStartY = useRef(0);
+  const touchDeltaY = useRef(0);
+  const isDragging = useRef(false);
+
+  const closeSheet = () => {
+    setSheetClosing(true);
+    setTimeout(() => {
+      setSheetOpen(false);
+      setSheetClosing(false);
+    }, 300);
+  };
+
+  /* Listen for open-cart-sheet event from OrderHeader mobile button */
+  useEffect(() => {
+    const handler = () => setSheetOpen(true);
+    window.addEventListener("open-cart-sheet", handler);
+    return () => window.removeEventListener("open-cart-sheet", handler);
+  }, []);
+
+  /* Lock body scroll when sheet is open */
+  useEffect(() => {
+    if (sheetOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [sheetOpen]);
+
+  /* ── Calculations ── */
+  const totalItems = items.reduce((sum: number, i: CartItem) => sum + i.qty, 0);
+  const subtotal = items.reduce((sum: number, i: CartItem) => sum + i.price * i.qty, 0);
+  const discount = promo ? promo.discount : 0;
+  const taxableSubtotal = subtotal - discount;
+  const tax = taxableSubtotal * TAX_RATE;
+  const total = taxableSubtotal + tax + (items.length > 0 ? PACKAGING_FEE : 0);
+
+  const handleApplyPromo = async () => {
+    const success = await applyPromo(promoInput, subtotal);
+    if (success) setPromoInput("");
+  };
+
+  /* ── Shared props for extracted components ── */
+  const promoSectionProps = {
+    promo,
+    promoInput,
+    setPromoInput,
+    promoLoading,
+    promoError: promoError || "",
+    handleApplyPromo,
+    removePromo,
+  };
+
+  const totalsProps = {
+    items,
+    subtotal,
+    tax,
+    total,
+    promo,
+  };
 
   return (
     <>
@@ -351,7 +459,7 @@ export default function CartSidebar() {
 
         {/* Pickup Time */}
         <div style={{ padding: "18px 28px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-          <PickupTimeSelector />
+          <PickupTimeSelector activeTime={activeTime} setActiveTime={setActiveTime} />
         </div>
 
         {/* Cart Items (scrollable) */}
@@ -367,41 +475,14 @@ export default function CartSidebar() {
             </div>
           ) : (
             items.map((item: CartItem) => (
-              <div
-                key={`${item.categoryKey}-${item.name}`}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "50px 1fr auto",
-                  gap: 14,
-                  alignItems: "flex-start",
-                  padding: "16px 0",
-                  borderBottom: "1px solid rgba(255,255,255,0.04)",
-                }}
-              >
-                <div style={{ width: 50, height: 50, borderRadius: 10, overflow: "hidden", border: "1px solid rgba(255,255,255,0.06)", position: "relative" }}>
-                  <Image src={item.img} alt={item.name} width={50} height={50} style={{ objectFit: "cover" }} />
-                </div>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontFamily: "var(--font-display)", fontSize: 15, fontWeight: 500, color: "#fff", marginBottom: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</div>
-                  <div style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "rgba(255,255,255,0.2)", fontWeight: 300, marginBottom: 8 }}>{catLabelMap[item.categoryKey] ?? ""}</div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <button onClick={() => { if (item.qty <= 1) removeItem(item.name, item.categoryKey); else updateQty(item.name, item.categoryKey, item.qty - 1); }} style={desktopQtyBtnStyle} onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(183,143,82,0.3)"; e.currentTarget.style.color = "#C9A050"; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)"; e.currentTarget.style.color = "rgba(255,255,255,0.45)"; }}>−</button>
-                    <span style={{ fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 700, color: "#fff", minWidth: 14, textAlign: "center" }}>{item.qty}</span>
-                    <button onClick={() => updateQty(item.name, item.categoryKey, item.qty + 1)} style={desktopQtyBtnStyle} onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(183,143,82,0.3)"; e.currentTarget.style.color = "#C9A050"; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)"; e.currentTarget.style.color = "rgba(255,255,255,0.45)"; }}>+</button>
-                  </div>
-                </div>
-                <div style={{ textAlign: "right" }}>
-                  <div style={{ fontFamily: "var(--font-accent)", fontSize: 18, fontWeight: 600, color: "#C9A050" }}>${(item.price * item.qty).toFixed(0)}</div>
-                  <button onClick={() => removeItem(item.name, item.categoryKey)} style={{ fontFamily: "var(--font-body)", fontSize: 10, color: "rgba(255,255,255,0.15)", background: "none", border: "none", cursor: "pointer", marginTop: 6, transition: "color 0.2s", letterSpacing: 0.5, minHeight: 36, padding: "8px 4px" }} onMouseEnter={(e) => (e.currentTarget.style.color = "#a85454")} onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.15)")}>Remove</button>
-                </div>
-              </div>
+              <CartItemRow key={`desktop-${item.categoryKey}-${item.name}`} item={item} updateQty={updateQty} removeItem={removeItem} variant="desktop" />
             ))
           )}
         </div>
 
         {/* Promo */}
         {items.length > 0 && (
-          <div style={{ padding: "0 28px 14px" }}><PromoSection /></div>
+          <div style={{ padding: "0 28px 14px" }}><PromoSection {...promoSectionProps} /></div>
         )}
 
         {/* Special Instructions */}
@@ -419,7 +500,7 @@ export default function CartSidebar() {
 
         {/* Totals & Checkout */}
         <div style={{ padding: "18px 28px 24px", borderTop: "1px solid rgba(255,255,255,0.04)", background: "linear-gradient(180deg, transparent 0%, rgba(201,160,80,0.015) 100%)" }}>
-          <TotalsBlock />
+          <TotalsBlock {...totalsProps} />
           <div style={{ textAlign: "center", fontFamily: "var(--font-body)", fontSize: 10, color: "rgba(255,255,255,0.15)", marginTop: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, letterSpacing: 0.5 }}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>
             Secure checkout · SSL encrypted
@@ -521,11 +602,9 @@ export default function CartSidebar() {
             onTouchMove={(e) => {
               const delta = e.touches[0].clientY - touchStartY.current;
               touchDeltaY.current = delta;
-              // Only allow dragging downward
               const clampedDelta = Math.max(0, delta);
               if (clampedDelta > 10) isDragging.current = true;
               if (sheetRef.current && clampedDelta > 0) {
-                // Apply rubber-band resistance after 40px
                 const translated = clampedDelta < 40
                   ? clampedDelta
                   : 40 + (clampedDelta - 40) * 0.4;
@@ -544,7 +623,6 @@ export default function CartSidebar() {
                 backdropRef.current.style.transition = "opacity 0.3s ease";
               }
               if (touchDeltaY.current > 100) {
-                // Dismiss
                 if (sheetRef.current) {
                   sheetRef.current.style.transform = "translateY(100%)";
                 }
@@ -553,7 +631,6 @@ export default function CartSidebar() {
                 }
                 setTimeout(() => {
                   setSheetOpen(false);
-                  // Reset transforms
                   if (sheetRef.current) {
                     sheetRef.current.style.transform = "";
                     sheetRef.current.style.transition = "";
@@ -564,7 +641,6 @@ export default function CartSidebar() {
                   }
                 }, 300);
               } else {
-                // Snap back
                 if (sheetRef.current) {
                   sheetRef.current.style.transform = "translateY(0)";
                 }
@@ -592,7 +668,7 @@ export default function CartSidebar() {
               transition: sheetClosing ? "transform 0.3s cubic-bezier(0.22,1,0.36,1)" : "none",
             }}
           >
-            {/* Drag handle + Header — both act as drag zone on desktop */}
+            {/* Drag handle + Header */}
             <div
               className="cart-sheet-drag-zone"
               style={{ flexShrink: 0, userSelect: "none" }}
@@ -656,44 +732,44 @@ export default function CartSidebar() {
                 <div className="cart-drag-pill" style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.15)", transition: "all 0.2s ease" }} />
               </div>
 
-            {/* Header */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid rgba(255,255,255,0.04)", flexShrink: 0 }}>
-              <div>
-                <div style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 500, color: "#fff" }}>Your Order</div>
-                <div style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "rgba(255,255,255,0.25)", fontWeight: 300 }}>{totalItems} item{totalItems !== 1 ? "s" : ""}</div>
+              {/* Header */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid rgba(255,255,255,0.04)", flexShrink: 0 }}>
+                <div>
+                  <div style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 500, color: "#fff" }}>Your Order</div>
+                  <div style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "rgba(255,255,255,0.25)", fontWeight: 300 }}>{totalItems} item{totalItems !== 1 ? "s" : ""}</div>
+                </div>
+                <button
+                  onClick={() => closeSheet()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 10,
+                    border: "1px solid rgba(255,255,255,0.06)",
+                    background: "transparent",
+                    color: "rgba(255,255,255,0.4)",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 18,
+                    fontFamily: "var(--font-body)",
+                  }}
+                >
+                  ✕
+                </button>
               </div>
-              <button
-                onClick={() => closeSheet()}
-                onMouseDown={(e) => e.stopPropagation()}
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 10,
-                  border: "1px solid rgba(255,255,255,0.06)",
-                  background: "transparent",
-                  color: "rgba(255,255,255,0.4)",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 18,
-                  fontFamily: "var(--font-body)",
-                }}
-              >
-                ✕
-              </button>
-            </div>
             </div>{/* end drag zone */}
 
             {/* Scrollable body */}
             <div style={{ flex: 1, overflowY: "auto", padding: "0 20px", WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}>
-              <PickupTimeSelector />
+              <PickupTimeSelector activeTime={activeTime} setActiveTime={setActiveTime} />
 
               {items.map((item: CartItem) => (
-                <CartItemRow key={`sheet-${item.categoryKey}-${item.name}`} item={item} />
+                <CartItemRow key={`sheet-${item.categoryKey}-${item.name}`} item={item} updateQty={updateQty} removeItem={removeItem} variant="sheet" />
               ))}
 
-              {items.length > 0 && <PromoSection />}
+              {items.length > 0 && <PromoSection {...promoSectionProps} />}
 
               {/* Special Instructions */}
               {items.length > 0 && (
@@ -710,7 +786,7 @@ export default function CartSidebar() {
 
               {/* Totals */}
               <div style={{ padding: "14px 0 8px" }}>
-                <TotalsBlock showCheckout={false} />
+                <TotalsBlock {...totalsProps} showCheckout={false} />
               </div>
             </div>
 
@@ -752,7 +828,6 @@ export default function CartSidebar() {
           Responsive CSS
           ════════════════════════════════════════ */}
       <style>{`
-        /* Hide desktop sidebar on mobile, show bottom bar */
         @media (max-width: 900px) {
           .cart-desktop-sidebar {
             display: none !important;
@@ -761,8 +836,6 @@ export default function CartSidebar() {
             display: block !important;
           }
         }
-
-        /* Hide mobile bar on desktop */
         @media (min-width: 901px) {
           .cart-mobile-bar {
             display: none !important;
@@ -772,8 +845,6 @@ export default function CartSidebar() {
             display: none !important;
           }
         }
-
-        /* Sheet animations */
         @keyframes cartSlideUp {
           from { transform: translateY(100%); }
           to { transform: translateY(0); }
@@ -782,11 +853,7 @@ export default function CartSidebar() {
           from { opacity: 0; }
           to { opacity: 1; }
         }
-
-        /* Hide scrollbar in sheet body */
         .cart-sheet > div:nth-child(2)::-webkit-scrollbar { display: none; }
-
-        /* Drag handle hover hint on desktop */
         .cart-sheet-drag-zone:hover .cart-drag-pill {
           background: rgba(255,255,255,0.3) !important;
           width: 48px !important;
@@ -797,8 +864,6 @@ export default function CartSidebar() {
         .cart-sheet-drag-zone:active {
           cursor: grabbing;
         }
-
-        /* Touch feedback on qty buttons */
         @media (hover: none) and (pointer: coarse) {
           .cart-desktop-sidebar button:active {
             opacity: 0.7;
