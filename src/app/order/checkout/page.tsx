@@ -48,7 +48,7 @@ function PaymentForm({
     setLoading(true);
     setError("");
 
-    const { error: submitError, paymentIntent } = await stripe.confirmPayment({
+    const result = await stripe.confirmPayment({
       elements,
       confirmParams: {
         return_url: `${window.location.origin}/order/confirmation`,
@@ -56,11 +56,19 @@ function PaymentForm({
       redirect: "if_required",
     });
 
-    if (submitError) {
-      setError(submitError.message || "Payment failed");
+    if (result.error) {
+      setError(result.error.message || "Payment failed");
       setLoading(false);
-    } else if (paymentIntent && paymentIntent.status === "succeeded") {
-      onSuccess(paymentIntent.id);
+    } else {
+      // Payment succeeded - get the payment intent ID from the result
+      const paymentIntentId = result.paymentIntent?.id;
+
+      if (paymentIntentId) {
+        onSuccess(paymentIntentId);
+      } else {
+        setError("Payment completed but no confirmation received");
+        setLoading(false);
+      }
     }
   };
 
