@@ -90,9 +90,11 @@ export default function CheckoutPage() {
         })),
         subtotal,
         discount,
-        promoCode: promo ? promo.code : undefined,
-        promoType: promo ? promo.type : undefined,
-        promoValue: promo ? promo.value : undefined,
+        ...(promo && {
+          promoCode: promo.code,
+          promoType: promo.type,
+          promoValue: promo.value,
+        }),
         tax,
         packagingFee: PACKAGING_FEE,
         tip: tipAmount,
@@ -105,7 +107,7 @@ export default function CheckoutPage() {
     } catch (err: unknown) {
       console.error("Order failed:", err);
       const message = err instanceof Error ? err.message : "Unknown error occurred";
-      setError(`Order failed: ${message}`);
+      setError(`Something went wrong. Please try again.`);
       setLoading(false);
     }
   };
