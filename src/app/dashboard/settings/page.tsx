@@ -18,15 +18,17 @@ import PromoCreateModal from "./PromoCreateModal";
    NEW YORK NOOK — Settings Dashboard
    /dashboard/settings
 
-   Three sub-tabs:
+   Four sub-tabs:
      1. Restaurant Hours  — open/close per day + online ordering toggle
      2. Pickup Slots      — configurable pickup windows + global limits
      3. Promo Codes       — CRUD promo codes with usage tracking
+     4. Reservations      — table inventory, time slots, booking rules
 
    All data persists in Firestore:
-     • settings/hours       → DaySchedule[] + onlineOrdering bool
-     • settings/pickup      → PickupSlot[] + global limits
-     • promoCodes (coll)    → individual promo code docs
+     • settings/hours         → DaySchedule[] + onlineOrdering bool
+     • settings/pickup        → PickupSlot[] + global limits
+     • settings/reservations  → tables, time slots, booking rules
+     • promoCodes (coll)      → individual promo code docs
    ═══════════════════════════════════════════════════════════ */
 
 /* ── Types ────────────────────────────────────────────── */
@@ -72,6 +74,32 @@ type PromoCode = {
   createdAt: unknown;
 };
 
+type TableConfig = {
+  id: string;
+  label: string;
+  seats: number;
+  active: boolean;
+};
+
+type ResTimeSlot = {
+  time: string;      // "17:00"
+  label: string;     // "5:00 PM"
+  enabled: boolean;
+};
+
+type ReservationsData = {
+  tables: TableConfig[];
+  timeSlots: ResTimeSlot[];
+  acceptingReservations: boolean;
+  maxPartySize: number;
+  largePartyThreshold: number;
+  slotDurationMinutes: number;
+  advanceBookingDays: number;
+  closedDays: string[];           // ["Monday"]
+  autoConfirm: boolean;
+  bufferMinutes: number;
+};
+
 /* ── Defaults ─────────────────────────────────────────── */
 
 const DEFAULT_HOURS: HoursData = {
@@ -95,6 +123,42 @@ const DEFAULT_PICKUP: PickupData = {
     { id: "s2", label: "30–45 min", minMinutes: 30, maxMinutes: 45, enabled: true, maxOrders: 10 },
     { id: "s3", label: "45–60 min", minMinutes: 45, maxMinutes: 60, enabled: true, maxOrders: 12 },
     { id: "s4", label: "1–2 hours", minMinutes: 60, maxMinutes: 120, enabled: false, maxOrders: 15 },
+  ],
+};
+
+const DEFAULT_RESERVATIONS: ReservationsData = {
+  acceptingReservations: true,
+  maxPartySize: 8,
+  largePartyThreshold: 8,
+  slotDurationMinutes: 30,
+  advanceBookingDays: 90,
+  closedDays: ["Monday"],
+  autoConfirm: true,
+  bufferMinutes: 15,
+  tables: [
+    { id: "T1", label: "T1", seats: 2, active: true },
+    { id: "T2", label: "T2", seats: 2, active: true },
+    { id: "T3", label: "T3", seats: 4, active: true },
+    { id: "T4", label: "T4", seats: 4, active: true },
+    { id: "T5", label: "T5", seats: 4, active: true },
+    { id: "T6", label: "T6", seats: 6, active: true },
+    { id: "T7", label: "T7", seats: 6, active: true },
+    { id: "T8", label: "T8", seats: 8, active: true },
+    { id: "T9", label: "T9", seats: 2, active: true },
+    { id: "T10", label: "T10", seats: 4, active: true },
+    { id: "PDR", label: "PDR", seats: 12, active: true },
+  ],
+  timeSlots: [
+    { time: "17:00", label: "5:00 PM", enabled: true },
+    { time: "17:30", label: "5:30 PM", enabled: true },
+    { time: "18:00", label: "6:00 PM", enabled: true },
+    { time: "18:30", label: "6:30 PM", enabled: true },
+    { time: "19:00", label: "7:00 PM", enabled: true },
+    { time: "19:30", label: "7:30 PM", enabled: true },
+    { time: "20:00", label: "8:00 PM", enabled: true },
+    { time: "20:30", label: "8:30 PM", enabled: true },
+    { time: "21:00", label: "9:00 PM", enabled: true },
+    { time: "21:30", label: "9:30 PM", enabled: false },
   ],
 };
 
@@ -1351,96 +1415,27 @@ function PromoTab() {
 
                   {isTablet && (
                     <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, marginTop: 10 }}>
-                      {/* Usage bar */}
                       <div style={{ flex: "1 1 140px" }}>
-                        <div
-                          style={{
-                            fontSize: 11,
-                            color: "rgba(255,255,255,0.4)",
-                            marginBottom: 5,
-                          }}
-                        >
-                          {p.usageCount}
-                          {p.usageLimit ? ` / ${p.usageLimit}` : ""} used
+                        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 5 }}>
+                          {p.usageCount}{p.usageLimit ? ` / ${p.usageLimit}` : ""} used
                         </div>
                         {usagePercent !== null && (
-                          <div
-                            style={{
-                              height: 4,
-                              background: "rgba(255,255,255,0.06)",
-                              borderRadius: 2,
-                              overflow: "hidden",
-                            }}
-                          >
-                            <div
-                              style={{
-                                height: "100%",
-                                width: `${Math.min(usagePercent, 100)}%`,
-                                background:
-                                  usagePercent > 80
-                                    ? "#F87171"
-                                    : "#C9A050",
-                                borderRadius: 2,
-                                transition: "width 0.3s",
-                              }}
-                            />
+                          <div style={{ height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
+                            <div style={{ height: "100%", width: `${Math.min(usagePercent, 100)}%`, background: usagePercent > 80 ? "#F87171" : "#C9A050", borderRadius: 2, transition: "width 0.3s" }} />
                           </div>
                         )}
                       </div>
-
-                      {/* Estimated discount given */}
                       <div>
-                        <div
-                          style={{
-                            fontSize: 13,
-                            fontWeight: 600,
-                            fontFamily: "'DM Mono', monospace",
-                            color: "#fff",
-                          }}
-                        >
-                          $
-                          {Math.round(
-                            p.usageCount *
-                              (p.type === "percent"
-                                ? p.value * 0.6
-                                : p.value)
-                          )}
+                        <div style={{ fontSize: 13, fontWeight: 600, fontFamily: "'DM Mono', monospace", color: "#fff" }}>
+                          ${Math.round(p.usageCount * (p.type === "percent" ? p.value * 0.6 : p.value))}
                         </div>
-                        <div
-                          style={{
-                            fontSize: 10,
-                            color: "rgba(255,255,255,0.2)",
-                          }}
-                        >
-                          discounted
-                        </div>
+                        <div style={{ fontSize: 10, color: "rgba(255,255,255,0.2)" }}>discounted</div>
                       </div>
-
-                      {/* Delete */}
                       <button
                         onClick={() => deletePromo(p.id, p.code)}
-                        style={{
-                          background: "none",
-                          border: "1px solid rgba(255,255,255,0.08)",
-                          borderRadius: 6,
-                          padding: "5px 12px",
-                          color: "rgba(255,255,255,0.25)",
-                          fontSize: 11,
-                          cursor: "pointer",
-                          fontFamily: "var(--font-body)",
-                          transition: "all 0.15s",
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.borderColor =
-                            "rgba(248,113,113,0.35)";
-                          e.currentTarget.style.color = "#F87171";
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.borderColor =
-                            "rgba(255,255,255,0.08)";
-                          e.currentTarget.style.color =
-                            "rgba(255,255,255,0.25)";
-                        }}
+                        style={{ background: "none", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, padding: "5px 12px", color: "rgba(255,255,255,0.25)", fontSize: 11, cursor: "pointer", fontFamily: "var(--font-body)", transition: "all 0.15s" }}
+                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(248,113,113,0.35)"; e.currentTarget.style.color = "#F87171"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; e.currentTarget.style.color = "rgba(255,255,255,0.25)"; }}
                       >
                         Delete
                       </button>
@@ -1448,102 +1443,35 @@ function PromoTab() {
                   )}
                 </div>
 
-                {/* Usage bar - desktop only */}
                 {!isTablet && (
                   <div>
-                    <div
-                      style={{
-                        fontSize: 11,
-                        color: "rgba(255,255,255,0.4)",
-                        marginBottom: 5,
-                      }}
-                    >
-                      {p.usageCount}
-                      {p.usageLimit ? ` / ${p.usageLimit}` : ""} used
+                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 5 }}>
+                      {p.usageCount}{p.usageLimit ? ` / ${p.usageLimit}` : ""} used
                     </div>
                     {usagePercent !== null && (
-                      <div
-                        style={{
-                          height: 4,
-                          background: "rgba(255,255,255,0.06)",
-                          borderRadius: 2,
-                          overflow: "hidden",
-                        }}
-                      >
-                        <div
-                          style={{
-                            height: "100%",
-                            width: `${Math.min(usagePercent, 100)}%`,
-                            background:
-                              usagePercent > 80
-                                ? "#F87171"
-                                : "#C9A050",
-                            borderRadius: 2,
-                            transition: "width 0.3s",
-                          }}
-                        />
+                      <div style={{ height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
+                        <div style={{ height: "100%", width: `${Math.min(usagePercent, 100)}%`, background: usagePercent > 80 ? "#F87171" : "#C9A050", borderRadius: 2, transition: "width 0.3s" }} />
                       </div>
                     )}
                   </div>
                 )}
 
-                {/* Estimated discount given - desktop only */}
                 {!isTablet && (
                   <div style={{ textAlign: "right" }}>
-                    <div
-                      style={{
-                        fontSize: 13,
-                        fontWeight: 600,
-                        fontFamily: "'DM Mono', monospace",
-                        color: "#fff",
-                      }}
-                    >
-                      $
-                      {Math.round(
-                        p.usageCount *
-                          (p.type === "percent"
-                            ? p.value * 0.6
-                            : p.value)
-                      )}
+                    <div style={{ fontSize: 13, fontWeight: 600, fontFamily: "'DM Mono', monospace", color: "#fff" }}>
+                      ${Math.round(p.usageCount * (p.type === "percent" ? p.value * 0.6 : p.value))}
                     </div>
-                    <div
-                      style={{
-                        fontSize: 10,
-                        color: "rgba(255,255,255,0.2)",
-                      }}
-                    >
-                      discounted
-                    </div>
+                    <div style={{ fontSize: 10, color: "rgba(255,255,255,0.2)" }}>discounted</div>
                   </div>
                 )}
 
-                {/* Delete - desktop only */}
                 {!isTablet && (
                   <div style={{ textAlign: "right" }}>
                     <button
                       onClick={() => deletePromo(p.id, p.code)}
-                      style={{
-                        background: "none",
-                        border: "1px solid rgba(255,255,255,0.08)",
-                        borderRadius: 6,
-                        padding: "5px 12px",
-                        color: "rgba(255,255,255,0.25)",
-                        fontSize: 11,
-                        cursor: "pointer",
-                        fontFamily: "var(--font-body)",
-                        transition: "all 0.15s",
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.borderColor =
-                          "rgba(248,113,113,0.35)";
-                        e.currentTarget.style.color = "#F87171";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.borderColor =
-                          "rgba(255,255,255,0.08)";
-                        e.currentTarget.style.color =
-                          "rgba(255,255,255,0.25)";
-                      }}
+                      style={{ background: "none", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, padding: "5px 12px", color: "rgba(255,255,255,0.25)", fontSize: 11, cursor: "pointer", fontFamily: "var(--font-body)", transition: "all 0.15s" }}
+                      onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(248,113,113,0.35)"; e.currentTarget.style.color = "#F87171"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; e.currentTarget.style.color = "rgba(255,255,255,0.25)"; }}
                     >
                       Delete
                     </button>
@@ -1561,6 +1489,475 @@ function PromoTab() {
 }
 
 /* ═══════════════════════════════════════════════════════════
+   TAB 4 — RESERVATIONS
+   ═══════════════════════════════════════════════════════════ */
+
+function ReservationsTab() {
+  const isMobile = useIsMobile();
+  const isTablet = useIsTablet();
+  const [data, setData] = useState<ReservationsData>(DEFAULT_RESERVATIONS);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [toast, setToast] = useState("");
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const snap = await getDoc(doc(db, "settings", "reservations"));
+        if (snap.exists()) {
+          setData(snap.data() as ReservationsData);
+        }
+      } catch (e) {
+        console.error("Failed to load reservation settings:", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+  const updateTable = (id: string, patch: Partial<TableConfig>) => {
+    setData((prev) => ({
+      ...prev,
+      tables: prev.tables.map((t) => (t.id === id ? { ...t, ...patch } : t)),
+    }));
+    setSaved(false);
+  };
+
+  const addTable = () => {
+    const num = data.tables.length + 1;
+    const newTable: TableConfig = {
+      id: `T${Date.now()}`,
+      label: `T${num}`,
+      seats: 4,
+      active: true,
+    };
+    setData((prev) => ({ ...prev, tables: [...prev.tables, newTable] }));
+    setSaved(false);
+  };
+
+  const removeTable = (id: string) => {
+    setData((prev) => ({ ...prev, tables: prev.tables.filter((t) => t.id !== id) }));
+    setSaved(false);
+  };
+
+  const toggleTimeSlot = (time: string) => {
+    setData((prev) => ({
+      ...prev,
+      timeSlots: prev.timeSlots.map((s) =>
+        s.time === time ? { ...s, enabled: !s.enabled } : s
+      ),
+    }));
+    setSaved(false);
+  };
+
+  const toggleClosedDay = (day: string) => {
+    setData((prev) => ({
+      ...prev,
+      closedDays: prev.closedDays.includes(day)
+        ? prev.closedDays.filter((d) => d !== day)
+        : [...prev.closedDays, day],
+    }));
+    setSaved(false);
+  };
+
+  const toggleAccepting = async (v: boolean) => {
+    setData((prev) => ({ ...prev, acceptingReservations: v }));
+    try {
+      await setDoc(doc(db, "settings", "reservations"), { ...data, acceptingReservations: v });
+      setToast(v ? "Reservations enabled" : "Reservations paused");
+    } catch (e) {
+      console.error("Toggle failed:", e);
+      setData((prev) => ({ ...prev, acceptingReservations: !v }));
+    }
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await setDoc(doc(db, "settings", "reservations"), data);
+      setSaved(true);
+      setToast("Reservation settings saved");
+      setTimeout(() => setSaved(false), 2000);
+    } catch (e) {
+      console.error("Save failed:", e);
+      setToast("Failed to save — try again");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const activeTables = data.tables.filter((t) => t.active);
+  const totalSeats = activeTables.reduce((s, t) => s + t.seats, 0);
+  const activeSlots = data.timeSlots.filter((s) => s.enabled).length;
+  const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+  const SHORT_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+  if (loading) {
+    return (
+      <div style={{ padding: 40, textAlign: "center", color: "rgba(255,255,255,0.3)" }}>
+        Loading reservation settings…
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      {/* ── Accepting Reservations Toggle ── */}
+      <div
+        style={{
+          background: data.acceptingReservations
+            ? "rgba(74,222,128,0.08)"
+            : "rgba(248,113,113,0.08)",
+          border: `1px solid ${
+            data.acceptingReservations
+              ? "rgba(74,222,128,0.18)"
+              : "rgba(248,113,113,0.18)"
+          }`,
+          borderRadius: 12,
+          padding: "18px 22px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: "#fff", fontFamily: "var(--font-body)" }}>
+            Online Reservations
+          </div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", marginTop: 3 }}>
+            {data.acceptingReservations
+              ? "Guests can book tables through the website"
+              : "Reservation form is currently disabled"}
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: data.acceptingReservations ? "#4ADE80" : "#F87171" }}>
+            {data.acceptingReservations ? "LIVE" : "OFF"}
+          </span>
+          <Toggle checked={data.acceptingReservations} onChange={toggleAccepting} />
+        </div>
+      </div>
+
+      {/* ── Capacity Summary ── */}
+      <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr 1fr" : "1fr 1fr 1fr 1fr", gap: 14 }}>
+        {[
+          { label: "Active Tables", value: String(activeTables.length), sub: `of ${data.tables.length} total`, accent: "#C9A050" },
+          { label: "Total Seats", value: String(totalSeats), sub: "across active tables", accent: "#E8D5A3" },
+          { label: "Time Slots", value: String(activeSlots), sub: `of ${data.timeSlots.length} available`, accent: "#60A5FA" },
+          { label: "Booking Window", value: `${data.advanceBookingDays}d`, sub: "advance booking", accent: "rgba(255,255,255,0.55)" },
+        ].map((stat, i) => (
+          <div
+            key={i}
+            style={{
+              background: "rgba(255,255,255,0.025)",
+              border: "1px solid rgba(255,255,255,0.06)",
+              borderRadius: 12,
+              padding: "16px 18px",
+            }}
+          >
+            <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: 1.5, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", marginBottom: 6 }}>
+              {stat.label}
+            </div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: stat.accent, fontFamily: "var(--font-display)", lineHeight: 1 }}>
+              {stat.value}
+            </div>
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", marginTop: 4 }}>{stat.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Table Inventory ── */}
+      <div>
+        <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: 1.5, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", marginBottom: 12 }}>
+          Table Inventory
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: isTablet ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: 8 }}>
+          {data.tables.map((table) => (
+            <div
+              key={table.id}
+              style={{
+                background: table.active ? "rgba(255,255,255,0.025)" : "rgba(255,255,255,0.01)",
+                border: `1px solid ${table.active ? "rgba(201,160,80,0.2)" : "rgba(255,255,255,0.04)"}`,
+                borderRadius: 10,
+                padding: "14px 16px",
+                opacity: table.active ? 1 : 0.4,
+                transition: "all 0.2s",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+                <div>
+                  <input
+                    value={table.label}
+                    onChange={(e) => updateTable(table.id, { label: e.target.value })}
+                    style={{
+                      fontSize: 16,
+                      fontWeight: 700,
+                      color: table.active ? "#C9A050" : "rgba(255,255,255,0.3)",
+                      fontFamily: "var(--font-body)",
+                      background: "transparent",
+                      border: "none",
+                      outline: "none",
+                      width: 80,
+                      padding: 0,
+                    }}
+                  />
+                </div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <Toggle checked={table.active} onChange={(v) => updateTable(table.id, { active: v })} />
+                </div>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", marginBottom: 4 }}>Seats</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <button
+                      onClick={() => updateTable(table.id, { seats: Math.max(1, table.seats - 1) })}
+                      style={{
+                        width: 26, height: 26, borderRadius: 6,
+                        border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)",
+                        color: "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: 14, display: "flex",
+                        alignItems: "center", justifyContent: "center", fontFamily: "var(--font-body)",
+                      }}
+                    >
+                      −
+                    </button>
+                    <span style={{ fontSize: 18, fontWeight: 700, color: "#fff", fontFamily: "'DM Mono', monospace", minWidth: 28, textAlign: "center" }}>
+                      {table.seats}
+                    </span>
+                    <button
+                      onClick={() => updateTable(table.id, { seats: Math.min(20, table.seats + 1) })}
+                      style={{
+                        width: 26, height: 26, borderRadius: 6,
+                        border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)",
+                        color: "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: 14, display: "flex",
+                        alignItems: "center", justifyContent: "center", fontFamily: "var(--font-body)",
+                      }}
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+                <button
+                  onClick={() => removeTable(table.id)}
+                  style={{
+                    background: "none", border: "none", cursor: "pointer",
+                    fontSize: 16, color: "rgba(255,255,255,0.1)", padding: 4,
+                    borderRadius: 4, transition: "color 0.15s", lineHeight: 1, marginTop: 14,
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = "#F87171")}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.1)")}
+                  title="Remove table"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+          ))}
+
+          {/* Add table */}
+          <button
+            onClick={addTable}
+            style={{
+              padding: 20, borderRadius: 10,
+              border: "1px dashed rgba(255,255,255,0.08)",
+              background: "transparent", color: "rgba(255,255,255,0.2)",
+              fontSize: 13, fontFamily: "var(--font-body)", cursor: "pointer",
+              transition: "all 0.15s", display: "flex", alignItems: "center",
+              justifyContent: "center", gap: 6, minHeight: 100,
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(201,160,80,0.35)"; e.currentTarget.style.color = "#C9A050"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; e.currentTarget.style.color = "rgba(255,255,255,0.2)"; }}
+          >
+            + Add Table
+          </button>
+        </div>
+      </div>
+
+      {/* ── Time Slots ── */}
+      <div>
+        <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: 1.5, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", marginBottom: 12 }}>
+          Available Time Slots
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {data.timeSlots.map((slot) => (
+            <button
+              key={slot.time}
+              onClick={() => toggleTimeSlot(slot.time)}
+              style={{
+                padding: "10px 16px",
+                borderRadius: 8,
+                border: `1px solid ${slot.enabled ? "rgba(201,160,80,0.25)" : "rgba(255,255,255,0.06)"}`,
+                background: slot.enabled ? "rgba(201,160,80,0.1)" : "rgba(255,255,255,0.02)",
+                color: slot.enabled ? "#C9A050" : "rgba(255,255,255,0.2)",
+                fontWeight: slot.enabled ? 600 : 400,
+                fontSize: 13,
+                fontFamily: "var(--font-body)",
+                cursor: "pointer",
+                transition: "all 0.15s",
+                minWidth: 80,
+              }}
+            >
+              {slot.label}
+            </button>
+          ))}
+        </div>
+        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.2)", marginTop: 8 }}>
+          {activeSlots} of {data.timeSlots.length} slots active · Click to toggle
+        </div>
+      </div>
+
+      {/* ── Closed Days ── */}
+      <div>
+        <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: 1.5, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", marginBottom: 12 }}>
+          Closed for Reservations
+        </div>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {DAYS.map((day, i) => {
+            const closed = data.closedDays.includes(day);
+            return (
+              <button
+                key={day}
+                onClick={() => toggleClosedDay(day)}
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: 8,
+                  border: `1px solid ${closed ? "rgba(248,113,113,0.25)" : "rgba(255,255,255,0.06)"}`,
+                  background: closed ? "rgba(248,113,113,0.06)" : "rgba(255,255,255,0.02)",
+                  color: closed ? "#F87171" : "rgba(255,255,255,0.35)",
+                  fontWeight: closed ? 600 : 400,
+                  fontSize: 12,
+                  fontFamily: "var(--font-body)",
+                  cursor: "pointer",
+                  transition: "all 0.15s",
+                  textDecoration: closed ? "line-through" : "none",
+                }}
+              >
+                {SHORT_DAYS[i]}
+              </button>
+            );
+          })}
+        </div>
+        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.2)", marginTop: 8 }}>
+          {data.closedDays.length > 0
+            ? `Closed: ${data.closedDays.join(", ")}`
+            : "Open every day"
+          }
+        </div>
+      </div>
+
+      {/* ── Booking Rules ── */}
+      <div>
+        <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: 1.5, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", marginBottom: 14 }}>
+          Booking Rules
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: isTablet ? "1fr" : "1fr 1fr", gap: 14 }}>
+          {/* Max party size */}
+          <div style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: 20 }}>
+            <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: 1.5, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", marginBottom: 12 }}>
+              Max Party Size (online)
+            </div>
+            <NumInput
+              value={data.maxPartySize}
+              onChange={(v) => { setData((prev) => ({ ...prev, maxPartySize: v })); setSaved(false); }}
+              min={1} max={20} suffix="guests" width={60}
+            />
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", marginTop: 10, lineHeight: 1.5 }}>
+              Larger parties must call directly
+            </div>
+          </div>
+
+          {/* Large party threshold */}
+          <div style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: 20 }}>
+            <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: 1.5, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", marginBottom: 12 }}>
+              Large Party Threshold
+            </div>
+            <NumInput
+              value={data.largePartyThreshold}
+              onChange={(v) => { setData((prev) => ({ ...prev, largePartyThreshold: v })); setSaved(false); }}
+              min={2} max={20} suffix="guests" width={60}
+            />
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", marginTop: 10, lineHeight: 1.5 }}>
+              Parties this size or larger are flagged
+            </div>
+          </div>
+
+          {/* Slot duration */}
+          <div style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: 20 }}>
+            <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: 1.5, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", marginBottom: 12 }}>
+              Slot Duration
+            </div>
+            <NumInput
+              value={data.slotDurationMinutes}
+              onChange={(v) => { setData((prev) => ({ ...prev, slotDurationMinutes: v })); setSaved(false); }}
+              min={15} max={120} suffix="min" width={60}
+            />
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", marginTop: 10, lineHeight: 1.5 }}>
+              Default time between reservation slots
+            </div>
+          </div>
+
+          {/* Advance booking */}
+          <div style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: 20 }}>
+            <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: 1.5, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", marginBottom: 12 }}>
+              Advance Booking
+            </div>
+            <NumInput
+              value={data.advanceBookingDays}
+              onChange={(v) => { setData((prev) => ({ ...prev, advanceBookingDays: v })); setSaved(false); }}
+              min={1} max={365} suffix="days" width={60}
+            />
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", marginTop: 10, lineHeight: 1.5 }}>
+              How far in advance guests can book
+            </div>
+          </div>
+
+          {/* Buffer */}
+          <div style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: 20 }}>
+            <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: 1.5, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", marginBottom: 12 }}>
+              Table Buffer Time
+            </div>
+            <NumInput
+              value={data.bufferMinutes}
+              onChange={(v) => { setData((prev) => ({ ...prev, bufferMinutes: v })); setSaved(false); }}
+              min={0} max={60} suffix="min" width={60}
+            />
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", marginTop: 10, lineHeight: 1.5 }}>
+              Turnover buffer between seatings
+            </div>
+          </div>
+
+          {/* Auto-confirm */}
+          <div style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: 20 }}>
+            <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: 1.5, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", marginBottom: 12 }}>
+              Auto-Confirm Bookings
+            </div>
+            <Toggle
+              checked={data.autoConfirm}
+              onChange={(v) => { setData((prev) => ({ ...prev, autoConfirm: v })); setSaved(false); }}
+            />
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", marginTop: 10, lineHeight: 1.5 }}>
+              {data.autoConfirm
+                ? "New reservations are auto-confirmed"
+                : "Staff must manually confirm each booking"}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Save ── */}
+      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+        <SaveButton saving={saving} saved={saved} onClick={handleSave} label="Save Reservation Settings" />
+      </div>
+
+      {toast && <Toast message={toast} onClose={() => setToast("")} />}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
    MAIN SETTINGS PAGE
    ═══════════════════════════════════════════════════════════ */
 
@@ -1568,6 +1965,7 @@ const TABS = [
   { key: "hours", label: "Restaurant Hours", icon: "🕐" },
   { key: "pickup", label: "Pickup Slots", icon: "📦" },
   { key: "promos", label: "Promo Codes", icon: "🏷️" },
+  { key: "reservations", label: "Reservations", icon: "📅" },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -1712,6 +2110,7 @@ export default function SettingsPage() {
         {activeTab === "hours" && <HoursTab />}
         {activeTab === "pickup" && <PickupTab />}
         {activeTab === "promos" && <PromoTab />}
+        {activeTab === "reservations" && <ReservationsTab />}
       </div>
     </div>
   );

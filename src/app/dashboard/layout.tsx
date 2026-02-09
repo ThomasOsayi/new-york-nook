@@ -7,11 +7,12 @@ import { useIsTablet } from "@/hooks/useIsMobile";
 
 /* ── Sidebar nav items ── */
 const NAV_ITEMS = [
-  { key: "orders",    label: "Orders",    icon: "📋", href: "/dashboard/orders" },
-  { key: "catering",  label: "Catering",  icon: "🥂", href: "/dashboard/catering" },
-  { key: "inventory", label: "Inventory", icon: "📦", href: "/dashboard/inventory" },
-  { key: "analytics", label: "Analytics", icon: "📊", href: "/dashboard/analytics" },
-  { key: "settings",  label: "Settings",  icon: "⚙️", href: "/dashboard/settings" },
+  { key: "orders",       label: "Orders",       icon: "📋", href: "/dashboard/orders" },
+  { key: "catering",     label: "Catering",     icon: "🥂", href: "/dashboard/catering" },
+  { key: "reservations", label: "Reservations", icon: "📅", href: "/dashboard/reservations" },
+  { key: "inventory",    label: "Inventory",    icon: "📦", href: "/dashboard/inventory" },
+  { key: "analytics",    label: "Analytics",    icon: "📊", href: "/dashboard/analytics" },
+  { key: "settings",     label: "Settings",     icon: "⚙️", href: "/dashboard/settings" },
 ] as const;
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
