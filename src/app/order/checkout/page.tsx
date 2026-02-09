@@ -102,9 +102,10 @@ export default function CheckoutPage() {
 
       clearCart();
       router.push(`/order/confirmation?id=${id}&order=${orderNumber}`);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Order failed:", err);
-      setError("Something went wrong. Please try again.");
+      const message = err instanceof Error ? err.message : "Unknown error occurred";
+      setError(`Order failed: ${message}`);
       setLoading(false);
     }
   };
