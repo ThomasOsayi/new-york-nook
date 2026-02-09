@@ -42,9 +42,10 @@ export interface OrderData {
   /* Special instructions */
   instructions?: string;
 
-  /* Payment (NEW) */
-  stripeSessionId?: string;
-  stripePaymentIntentId?: string;
+  /* Payment (supports both hosted and embedded Stripe flows) */
+  stripeSessionId?: string;        // Hosted checkout
+  stripePaymentIntentId?: string;  // Hosted checkout (also has payment intent)
+  paymentIntentId?: string;        // Embedded checkout (NEW)
   paymentStatus?: "paid" | "pending" | "failed";
 
   /* Meta */
@@ -60,7 +61,7 @@ export async function getOrder(orderId: string): Promise<OrderData | null> {
   return snap.data() as OrderData;
 }
 
-/* ── Get order by Stripe session ID (NEW) ── */
+/* ── Get order by Stripe session ID (for hosted checkout) ── */
 export async function getOrderBySessionId(sessionId: string): Promise<OrderData | null> {
   try {
     // Note: This requires a Firestore index on stripeSessionId
@@ -79,6 +80,29 @@ export async function getOrderBySessionId(sessionId: string): Promise<OrderData 
     return snap.docs[0].data() as OrderData;
   } catch (err) {
     console.error("Failed to get order by session ID:", err);
+    return null;
+  }
+}
+
+/* ── Get order by Payment Intent ID (for embedded Stripe payments) ── */
+export async function getOrderByPaymentIntent(paymentIntentId: string): Promise<OrderData | null> {
+  try {
+    // Note: This requires a Firestore index on paymentIntentId
+    // Firebase will prompt you to create it when first used
+    const { collection, query, where, getDocs } = await import("firebase/firestore");
+    
+    const q = query(
+      collection(db, "orders"),
+      where("paymentIntentId", "==", paymentIntentId)
+    );
+    
+    const snap = await getDocs(q);
+    
+    if (snap.empty) return null;
+    
+    return snap.docs[0].data() as OrderData;
+  } catch (err) {
+    console.error("Failed to get order by payment intent ID:", err);
     return null;
   }
 }

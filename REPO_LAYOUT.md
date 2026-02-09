@@ -28,11 +28,16 @@ new-york-nook/
     │   ├── layout.tsx
     │   ├── page.tsx
     │   ├── api/
-    │   │   └── consultation/
-    │   │       └── route.ts
+    │   │   ├── consultation/
+    │   │   │   └── route.ts
+    │   │   ├── create-checkout-session/
+    │   │   │   └── route.ts
+    │   │   └── webhooks/
+    │   │       └── stripe/
+    │   │           └── route.ts
     │   ├── catering/
     │   │   └── page.tsx
-    │       ├── login/
+    │   ├── login/
     │   │   ├── layout.tsx
     │   │   └── page.tsx
     │   ├── reserve/
@@ -89,7 +94,8 @@ new-york-nook/
     │   ├── auth.ts
     │   ├── consultation.ts
     │   ├── firebase.ts
-    │   └── order.ts
+    │   ├── order.ts
+    │   └── stripe.ts
     │
     └── hooks/
         ├── useInView.ts
@@ -111,6 +117,7 @@ new-york-nook/
 | **Tailwind CSS** | ^4 |
 | **Framer Motion** | ^12.33.0 |
 | **Firebase** | Firestore + Auth (Firebase JS SDK) |
+| **Stripe** | stripe ^20.3.1 (server), @stripe/stripe-js ^8.7.0 (client); Checkout Sessions + webhooks |
 | **Resend** | Email API (catering inquiry notifications) |
 | **clsx** | ^2.1.1 |
 | **ESLint** | ^9 (eslint-config-next 16.1.6) |
@@ -123,8 +130,8 @@ new-york-nook/
 |-------|-------------|
 | **`/`** | Home: single-page site with all sections (Hero, Signature Dishes, Menu, Gallery, Order, Catering, Reservations, Contact, Footer). |
 | **`/order`** | Takeout order flow: menu browser + cart sidebar; add items, set pickup time, special instructions, promo; “Proceed to Checkout” links to `/order/checkout`. |
-| **`/order/checkout`** | Checkout form: customer info (first name, last name, phone, email), order summary, tip (15/18/20/25% or custom), subtotal/discount/tax/packaging/tip/total. Submits order to Firestore via `createOrder` (includes discount, promoCode, promoType, promoValue when promo applied), clears cart, redirects to confirmation. No payment processor (Stripe, etc.) — order is stored only. |
-| **`/order/confirmation`** | Order confirmation: expects query `id` (Firestore doc ID) and `order` (order number). Fetches order via `getOrder(orderId)`; shows order number, status, items, totals, pickup time; “Back to Home” / “Order Again”. Loading and error states. |
+| **`/order/checkout`** | Checkout form: customer info (first name, last name, phone, email), order summary, tip (15/18/20/25% or custom), subtotal/discount/tax/packaging/tip/total. Submits to `/api/create-checkout-session`; creates Stripe Checkout Session; redirects to Stripe Hosted Checkout. After payment, Stripe redirects to `/order/confirmation?session_id={CHECKOUT_SESSION_ID}`. Order is created in Firestore by Stripe webhook (`checkout.session.completed`), not at checkout submit. |
+| **`/order/confirmation`** | Order confirmation: expects query `session_id` (Stripe Checkout Session ID). Fetches order via `getOrderBySessionId(sessionId)` (Firestore query by `stripeSessionId`); shows order number, status, items, totals, pickup time; “Back to Home” / “Order Again”. Loading and error states; retries once if order not yet written (webhook delay). |
 | **`/login`** | Staff login: email + password form; `signIn()` from `auth.ts` (Firebase Auth, whitelist `ALLOWED_EMAILS`). On success redirect to `/dashboard`. Error handling for invalid credentials, unauthorized, too-many-requests. |
 | **`/reserve`** | Reservation booking page: 4-step flow (Date/Time → Table → Details → Confirmation). Reads tables, time slots, and rules from Firestore `settings/reservations`; writes bookings to `reservations` via `addDoc`. Dynamic SVG floor plan; calendar; party size; table selection with availability; guest name/phone/notes; auto-confirm or “we’ll confirm shortly” message. Navbar “Reserve” and ReservationSection CTA link here. |
 | **`/dashboard`** | Redirects to `/dashboard/orders`. |
@@ -143,6 +150,8 @@ new-york-nook/
 | Route | Method | Purpose |
 |-------|--------|---------|
 | **`/api/consultation`** | POST | Catering inquiry: validates firstName, lastName, email, phone, eventType; saves to Firestore `consultations` via `createConsultation()`; sends HTML email to `CONSULTATION_NOTIFY_EMAIL` via Resend; returns `{ id, referenceNumber }`. Reference format `NYN-C-MMDD-XXXX`. |
+| **`/api/create-checkout-session`** | POST | Checkout: validates cart items and customer (firstName, lastName, email, phone). Creates Stripe Checkout Session with single line item (order total); stores full order payload in session `metadata` for webhook. Returns `{ sessionId, url }`; client redirects to Stripe. Success URL: `/order/confirmation?session_id={CHECKOUT_SESSION_ID}`; cancel URL: `/order/checkout`. |
+| **`/api/webhooks/stripe`** | POST | Stripe webhook: verifies `stripe-signature` with `STRIPE_WEBHOOK_SECRET`. On `checkout.session.completed`: parses metadata (customer, items, totals, promo, pickup); creates order in Firestore `orders` with `stripeSessionId`, `stripePaymentIntentId`, `paymentStatus: "paid"`, `status: "pending"`, generated `orderNumber`; increments promo `usageCount` when promo used. Returns 200. |
 
 ---
 
@@ -152,9 +161,9 @@ new-york-nook/
 - **`page.tsx`** — Home page: single-page layout with section refs and smooth scroll navigation between sections (Hero → SigDishes → Menu → Gallery → Order → Catering → Reserve → Contact → Footer).
 - **`order/layout.tsx`** — Order layout: wraps all `/order/*` routes in `CartProvider` so cart state is shared across order, checkout, and confirmation.
 - **`order/page.tsx`** — Order page at `/order`: two-column layout (Menubrowser + CartSidebar); responsive grid (sidebar becomes bottom sheet on ≤900px).
-- **`order/checkout/page.tsx`** — Checkout at `/order/checkout`: full checkout form and order summary; calls `createOrder()` with cart + customer + tip + discount/promo (when applied); redirects to `/order/confirmation?id=...&order=...`.
-- **`order/confirmation/page.tsx`** — Confirmation at `/order/confirmation`: wraps content in `Suspense` with loading spinner fallback; renders `ConfirmationContent` (client component that reads `id` and `order` from query, fetches order with `getOrder(id)`, displays order details or error).
-- **`order/confirmation/ConfirmationContent.tsx`** — Client component: reads `id` and `order` from URL search params; fetches order via `getOrder(id)`; shows order number, status, items, totals, pickup time; "Back to Home" / "Order Again". Loading and error states.
+- **`order/checkout/page.tsx`** — Checkout at `/order/checkout`: full checkout form and order summary; POSTs to `/api/create-checkout-session` with cart + customer + tip + discount/promo; redirects to Stripe Checkout URL; after payment Stripe redirects to `/order/confirmation?session_id=...`.
+- **`order/confirmation/page.tsx`** — Confirmation at `/order/confirmation`: wraps content in `Suspense` with loading spinner fallback; renders `ConfirmationContent` (client component that reads `session_id` from query, fetches order with `getOrderBySessionId(sessionId)`, displays order details or error).
+- **`order/confirmation/ConfirmationContent.tsx`** — Client component: reads `session_id` from URL search params; fetches order via `getOrderBySessionId(sessionId)`; shows order number, status, items, totals, pickup time; "Back to Home" / "Order Again". Loading and error states; retries once if order not yet in Firestore (webhook delay).
 - **`catering/page.tsx`** — Full catering page at `/catering`: hero, services, packages, menu samples, gallery, FAQ; consultation form in modal; submits to `/api/consultation`; success shows reference number.
 - **`reserve/page.tsx`** — Reservation page at `/reserve`: 4-step wizard (date/time + party size → table selection on floor plan → guest name/phone/notes → confirmation). Loads `settings/reservations` from Firestore; saves to `reservations` collection; dynamic floor plan (SVG), closed days, advance booking days, time slots; confirmation screen with auto-confirm or call-back message.
 - **`login/layout.tsx`** — Passthrough layout (no wrapper).
@@ -208,7 +217,8 @@ new-york-nook/
 | **`auth.ts`** | Firebase Auth: `signIn(email, password)` — whitelist `ALLOWED_EMAILS` (e.g. `nook@gmail.com`); rejects non-whitelisted before/after auth; `signOut()`. Used by login page and dashboard layout. |
 | **`consultation.ts`** | `ConsultationData` interface; `createConsultation(data)` → writes to Firestore `consultations` collection with `status: "new"`; returns `{ id, referenceNumber }` (format `NYN-C-MMDD-XXXX`). Used by `/api/consultation`. Dashboard catering reads and updates status via `updateDoc`. |
 | **`firebase.ts`** | Firebase app init (singleton via `getApps()`); Firestore `db` export. Config from env: `NEXT_PUBLIC_FIREBASE_API_KEY`, `AUTH_DOMAIN`, `PROJECT_ID`, `STORAGE_BUCKET`, `MESSAGING_SENDER_ID`, `APP_ID`, `MEASUREMENT_ID`. Use `.env.local` (gitignored). |
-| **`order.ts`** | Order persistence: `OrderItem`, `OrderData` interfaces. `OrderData` includes customer, items, subtotal, discount, tax, packagingFee, tip, total, pickupTime, instructions?, promoCode?, discount?, promoType? ("percent" \| "fixed"), promoValue?; status, createdAt, orderNumber. `createOrder(data)` → writes to Firestore `orders` collection, returns `{ id, orderNumber }` (order number format `NYN-MMDD-XXXX`); `getOrder(orderId)` → fetches by doc ID, returns order or null. Dashboard uses Firestore `updateDoc` directly for status changes. |
+| **`order.ts`** | Order types: `OrderItem`, `OrderData` interfaces. `OrderData` includes customer, items, subtotal, discount, tax, packagingFee, tip, total, pickupTime, instructions?, promoCode?, promoType?, promoValue?; `stripeSessionId`, `stripePaymentIntentId`, `paymentStatus`; status, createdAt, orderNumber. Orders are created in Firestore by the Stripe webhook (not by a client call). `getOrder(orderId)` → fetches by doc ID; `getOrderBySessionId(sessionId)` → queries `orders` where `stripeSessionId === sessionId` (for confirmation page; Firestore index on `stripeSessionId` required). Dashboard uses Firestore `updateDoc` for status changes. |
+| **`stripe.ts`** | Stripe server/client split: `getServerStripe()` and legacy `stripe` export for API routes (server-only; requires `STRIPE_SECRET_KEY`); `getStripe()` returns `loadStripe(NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)` for client (e.g. checkout redirect). API version `2026-01-28.clover`. |
 
 ---
 
@@ -247,7 +257,7 @@ new-york-nook/
 1. **layout.tsx** — Add OG image URL; add `metadataBase` for real domain.
 2. **OrderSection.tsx** — “Start Your Order” is wired to `/order`. No further change needed for navigation.
 3. **CartSidebar.tsx** — “Proceed to Checkout” is wired to `/order/checkout`. Done.
-4. **Checkout** — Orders are stored in Firestore only; no payment processor (Stripe, Square, etc.) integrated. Add payment if required.
+4. **Checkout** — Stripe Checkout is integrated: checkout creates session → Stripe Hosted Checkout → webhook creates order in Firestore; confirmation page uses `session_id` and `getOrderBySessionId`. Done.
 5. **Dashboard auth** — `/dashboard` has no middleware or layout guard; anyone can visit. Add `onAuthStateChanged` redirect to `/login` or Next.js middleware if protection needed.
 6. **Dashboard nav** — All tabs have pages: Orders, Catering, Reservations, Inventory, Analytics, Settings.
 7. **CateringSection.tsx** — “View Packages” links to `/catering`. “Inquire Now” is placeholder; full form is on `/catering` page.
@@ -262,7 +272,7 @@ new-york-nook/
 ### Navigation Flow
 
 1. **Home page** (`/`): Hero (Home) → SigDishes → Menu → Gallery → Order → Catering → Reserve → Contact → Footer.
-2. **Order flow**: `/order` (browse + cart) → CartSidebar “Proceed to Checkout” → `/order/checkout` (form + place order) → `createOrder()` → redirect to `/order/confirmation?id=<docId>&order=<orderNumber>` → confirmation page fetches order with `getOrder(id)`.
+2. **Order flow**: `/order` (browse + cart) → CartSidebar “Proceed to Checkout” → `/order/checkout` (form) → POST `/api/create-checkout-session` → redirect to Stripe Checkout → after payment Stripe redirects to `/order/confirmation?session_id=<id>` → confirmation page fetches order with `getOrderBySessionId(session_id)` (order created by webhook).
 3. **Order layout**: All `/order/*` routes share `CartProvider` (order layout).
 4. **Nav links (home)**: “Order” → `/order`, “Catering” → `/catering`, “Reserve” → `/reserve`. Other nav items smooth-scroll on home.
 5. **Hero CTAs**: “Reserve a Table” → scroll to Reserve, “Order Takeout” → scroll to Order section, “View Menu” → scroll to Menu.
@@ -290,7 +300,7 @@ new-york-nook/
 | `tsconfig.json` | TypeScript paths (`@/` → `src/`). |
 | `eslint.config.mjs` | ESLint flat config. |
 | `postcss.config.mjs` | PostCSS + Tailwind. |
-| `.env.local` | Firebase env vars (gitignored): `NEXT_PUBLIC_FIREBASE_*`; Resend: `RESEND_API_KEY`, `RESEND_FROM_EMAIL`; catering: `CONSULTATION_NOTIFY_EMAIL` (recipient for inquiry emails). |
+| `.env.local` | Firebase (gitignored): `NEXT_PUBLIC_FIREBASE_*`; Resend: `RESEND_API_KEY`, `RESEND_FROM_EMAIL`; catering: `CONSULTATION_NOTIFY_EMAIL`; Stripe: `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`; app: `NEXT_PUBLIC_BASE_URL` (e.g. for Stripe success/cancel URLs). |
 
 ---
 
