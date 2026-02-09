@@ -89,6 +89,7 @@ new-york-nook/
     │
     └── hooks/
         ├── useInView.ts
+        ├── useIsMobile.ts
         └── useScrollY.ts
 ```
 
@@ -152,7 +153,7 @@ new-york-nook/
 - **`login/layout.tsx`** — Passthrough layout (no wrapper).
 - **`login/page.tsx`** — Login form; `signIn()`; redirect to `/dashboard` on success.
 - **`dashboard/page.tsx`** — Server redirect to `/dashboard/orders`.
-- **`dashboard/layout.tsx`** — Sidebar nav (Orders, Catering, Inventory, Staff, Analytics, Settings); collapsible; logo links to `/`; Sign Out → `signOut()` + redirect to `/login`. Only Staff 404.
+- **`dashboard/layout.tsx`** — Sidebar nav (Orders, Catering, Inventory, Analytics, Settings); collapsible; uses `useIsTablet()` for responsive behavior; logo links to `/`; Sign Out → `signOut()` + redirect to `/login`. All nav items have pages.
 - **`dashboard/orders/page.tsx`** — Orders management: real-time list, filters, stats, order detail, status updates via Firestore `updateDoc`.
 - **`dashboard/catering/page.tsx`** — Catering inquiries: real-time list from `consultations`, filters, stats, detail panel, status progression.
 - **`dashboard/inventory/page.tsx`** — Inventory: menu item status (available/low/86), Firestore `inventory`, category filter, search, Reset All batch.
@@ -218,6 +219,8 @@ new-york-nook/
 | Hook | Purpose |
 |------|---------|
 | **`useInView`** | IntersectionObserver-based; returns `[ref, visible]` for scroll-triggered reveals. Optional threshold (default 0.12). One-shot: once visible, stays true. |
+| **`useIsMobile`** | `useIsMobile(breakpoint = 600)` — matchMedia-based; returns boolean for viewport ≤ breakpoint. SSR-safe (defaults to false). From `useIsMobile.ts`. |
+| **`useIsTablet`** | `useIsTablet(breakpoint = 900)` — matchMedia-based; returns boolean for viewport ≤ breakpoint. SSR-safe. Used by dashboard layout for responsive sidebar. From `useIsMobile.ts`. |
 | **`useScrollY`** | Tracks `window.scrollY` for parallax and nav state. |
 
 ---
@@ -257,7 +260,7 @@ new-york-nook/
 5. **Hero CTAs**: “Reserve a Table” → scroll to Reserve, “Order Takeout” → scroll to Order section, “View Menu” → scroll to Menu.
 6. **OrderSection**: “Start Your Order →” links to `/order`.
 7. **Footer links**: Login links to `/login`; others placeholder `#`.
-8. **Login flow**: Footer “Login” or direct `/login` → sign in (whitelisted email) → redirect to `/dashboard` (→ `/dashboard/orders`). Dashboard “Sign Out” → `signOut()` → redirect to `/login`. Dashboard sidebar: Orders, Catering, Inventory, Analytics, Settings all have pages; Staff 404.
+8. **Login flow**: Footer “Login” or direct `/login` → sign in (whitelisted email) → redirect to `/dashboard` (→ `/dashboard/orders`). Dashboard “Sign Out” → `signOut()` → redirect to `/login`. Dashboard sidebar: Orders, Catering, Inventory, Analytics, Settings (all have pages).
 9. **Catering flow**: CateringSection “View Packages” → `/catering`; Navbar “Catering” → `/catering`; catering page “Request Consultation” opens modal; form POSTs to `/api/consultation` → Firestore + Resend email → success with reference number.
 
 ---

@@ -7,26 +7,24 @@ import CartSidebar from "@/components/order/CartSidebar";
 
 export default function OrderPage() {
   return (
-    <div style={{ background: "rgb(var(--bg-primary))", minHeight: "100vh", overflow: "hidden" }}>
+    <div style={{ background: "rgb(var(--bg-primary))", minHeight: "100vh", overflowX: "clip" }}>
       <OrderHeader />
       <OrderHero />
 
-      {/* ── Two-column layout: menu + cart ── */}
       <div
         className="order-layout"
         style={{
           display: "grid",
           gridTemplateColumns: "minmax(0, 1fr) 380px",
           maxWidth: "100vw",
-          overflow: "hidden",
           position: "relative",
+          overflow: "hidden",
         }}
       >
         <Menubrowser />
         <CartSidebar />
       </div>
 
-      {/* ── Responsive override ── */}
       <style>{`
         @media (max-width: 1024px) {
           .order-layout {

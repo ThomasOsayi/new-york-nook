@@ -56,7 +56,7 @@ function Toast({ message, show }: { message: string; show: boolean }) {
   );
 }
 
-/* ── Quantity Stepper (inline on menu cards) ── */
+/* ── Quantity Stepper ── */
 function QtyStepper({ qty, onInc, onDec }: { qty: number; onInc: () => void; onDec: () => void }) {
   return (
     <div
@@ -72,16 +72,7 @@ function QtyStepper({ qty, onInc, onDec }: { qty: number; onInc: () => void; onD
       }}
     >
       <button onClick={(e) => { e.stopPropagation(); onDec(); }} aria-label="Decrease quantity" style={qtyBtnStyle}>−</button>
-      <span
-        style={{
-          width: 26,
-          textAlign: "center",
-          fontSize: 14,
-          fontWeight: 700,
-          color: "#C9A050",
-          fontFamily: "var(--font-body)",
-        }}
-      >
+      <span style={{ width: 26, textAlign: "center", fontSize: 14, fontWeight: 700, color: "#C9A050", fontFamily: "var(--font-body)" }}>
         {qty}
       </span>
       <button onClick={(e) => { e.stopPropagation(); onInc(); }} aria-label="Increase quantity" style={qtyBtnStyle}>+</button>
@@ -90,23 +81,136 @@ function QtyStepper({ qty, onInc, onDec }: { qty: number; onInc: () => void; onD
 }
 
 const qtyBtnStyle: React.CSSProperties = {
-  width: 36,
-  height: 36,
-  borderRadius: 8,
-  border: "none",
-  background: "transparent",
-  color: "rgba(255,255,255,0.5)",
-  cursor: "pointer",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  fontSize: 15,
-  fontWeight: 600,
-  fontFamily: "var(--font-body)",
-  transition: "all 0.2s",
+  width: 36, height: 36, borderRadius: 8, border: "none", background: "transparent",
+  color: "rgba(255,255,255,0.5)", cursor: "pointer", display: "flex", alignItems: "center",
+  justifyContent: "center", fontSize: 15, fontWeight: 600, fontFamily: "var(--font-body)", transition: "all 0.2s",
 };
 
-/* ── Single Menu Item Card ── */
+/* ══════════════════════════════════════════════
+   ActionButton — renders "+ Add" or qty stepper
+   Used by BOTH desktop and mobile layouts
+   ══════════════════════════════════════════════ */
+function ActionButton({
+  item,
+  categoryKey,
+  onAdded,
+  variant,
+}: {
+  item: MenuItem;
+  categoryKey: string;
+  onAdded: (name: string) => void;
+  variant: "desktop" | "mobile";
+}) {
+  const { items, addItem, updateQty, removeItem } = useCart();
+  const cartItem = items.find((i: CartItem) => i.name === item.name && i.categoryKey === categoryKey);
+
+  const handleAdd = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    addItem({ name: item.name, price: item.price, img: item.img, categoryKey, desc: item.desc });
+    onAdded(item.name);
+  };
+
+  if (cartItem) {
+    return (
+      <QtyStepper
+        qty={cartItem.qty}
+        onInc={() => updateQty(item.name, categoryKey, cartItem.qty + 1)}
+        onDec={() => {
+          if (cartItem.qty <= 1) removeItem(item.name, categoryKey);
+          else updateQty(item.name, categoryKey, cartItem.qty - 1);
+        }}
+      />
+    );
+  }
+
+  if (variant === "mobile") {
+    return (
+      <button
+        onClick={handleAdd}
+        aria-label={`Add ${item.name} to order`}
+        style={{
+          padding: "8px 20px", borderRadius: 10, border: "1px solid rgba(201,160,80,0.4)",
+          background: "rgba(201,160,80,0.12)", color: "#C9A050", cursor: "pointer",
+          fontSize: 13, fontWeight: 700, fontFamily: "var(--font-body)", letterSpacing: 0.5,
+          transition: "all 0.2s", minHeight: 38, whiteSpace: "nowrap", flexShrink: 0,
+        }}
+      >
+        + Add
+      </button>
+    );
+  }
+
+  return (
+    <button
+      onClick={handleAdd}
+      aria-label={`Add ${item.name} to order`}
+      style={{
+        width: 42, height: 42, borderRadius: 12, border: "1px solid rgba(255,255,255,0.08)",
+        background: "rgb(var(--bg-elevated))", color: "rgba(255,255,255,0.45)", cursor: "pointer",
+        display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.3s",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderColor = "#C9A050";
+        e.currentTarget.style.color = "#C9A050";
+        e.currentTarget.style.background = "rgba(201,160,80,0.1)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
+        e.currentTarget.style.color = "rgba(255,255,255,0.45)";
+        e.currentTarget.style.background = "rgb(var(--bg-elevated))";
+      }}
+    >
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M12 5v14m-7-7h14" />
+      </svg>
+    </button>
+  );
+}
+
+/* ── Shared tag sub-components ── */
+function BadgeTags({ tags }: { tags: string[] }) {
+  return (
+    <>
+      {tags.filter((t) => t === "popular" || t === "new" || t === "spicy").map((tag) => {
+        const s = TAG_STYLES[tag];
+        return (
+          <span key={tag} style={{ fontSize: "clamp(8px, 1.2vw, 9px)", letterSpacing: 1.5, textTransform: "uppercase", padding: "3px 8px", borderRadius: 4, fontWeight: 700, fontFamily: "var(--font-body)", background: s.bg, color: s.color, border: `1px solid ${s.border}`, whiteSpace: "nowrap" }}>
+            {s.label}
+          </span>
+        );
+      })}
+    </>
+  );
+}
+
+function DietaryTags({ tags }: { tags: string[] }) {
+  const dietary = tags.filter((t) => t === "gf" || t === "v");
+  if (dietary.length === 0) return null;
+  return (
+    <div style={{ display: "flex", gap: 5, marginTop: "clamp(4px, 0.8vw, 8px)" }}>
+      {dietary.map((tag) => {
+        const s = TAG_STYLES[tag];
+        return (
+          <span key={tag} style={{ fontSize: "clamp(8px, 1.2vw, 9px)", letterSpacing: 1, textTransform: "uppercase", padding: "2px 6px", borderRadius: 3, fontWeight: 700, fontFamily: "var(--font-body)", background: s.bg, color: s.color, border: `1px solid ${s.border}` }}>
+            {s.label}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════
+   MenuItemCard
+   
+   THE FIX: Two separate layout divs toggled with Tailwind
+   responsive classes (className="hidden lg:grid" etc.)
+   instead of inline style={{ display:"none" }} + <style> blocks.
+   
+   This is the same pattern AstiGlow uses for mobile buttons.
+   Tailwind classes are compiled at build time and cannot be
+   overridden by cascade/specificity issues.
+   ══════════════════════════════════════════════════════════════ */
 function MenuItemCard({
   item,
   categoryKey,
@@ -118,352 +222,139 @@ function MenuItemCard({
   onAdded: (name: string) => void;
   inventoryStatus: ItemStatus;
 }) {
-  const { items, addItem, updateQty, removeItem } = useCart();
-  const cartItem = items.find((i: CartItem) => i.name === item.name && i.categoryKey === categoryKey);
   const [hovered, setHovered] = useState(false);
-
   const isLow = inventoryStatus === "low";
-
-  const badgeTags = item.tags?.filter((t) => t === "popular" || t === "new" || t === "spicy") ?? [];
-  const dietaryTags = item.tags?.filter((t) => t === "gf" || t === "v") ?? [];
-
-  const handleAdd = () => {
-    addItem({
-      name: item.name,
-      price: item.price,
-      img: item.img,
-      categoryKey,
-      desc: item.desc,
-    });
-    onAdded(item.name);
-  };
+  const tags = item.tags ?? [];
 
   return (
     <div
       className="menu-item-card"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      onClick={() => {
-        /* On mobile, tapping anywhere on the card adds the item (if not already in cart) */
-        if (!cartItem && window.innerWidth <= 1024) {
-          handleAdd();
-        }
-      }}
       style={{
-        display: "grid",
-        gridTemplateColumns: "clamp(90px, 12vw, 130px) 1fr auto",
-        alignItems: "stretch",
         background: hovered ? "rgb(var(--bg-elevated))" : "rgba(12,10,7,0.8)",
         border: `1px solid ${hovered ? "rgba(183,143,82,0.15)" : "rgba(255,255,255,0.04)"}`,
         borderRadius: "clamp(12px, 1.5vw, 16px)",
         cursor: "pointer",
         transition: "all 0.4s cubic-bezier(0.16,1,0.3,1)",
         transform: hovered ? "translateY(-2px)" : "translateY(0)",
-        boxShadow: hovered
-          ? "0 8px 32px rgba(0,0,0,0.35), 0 0 40px rgba(201,160,80,0.04)"
-          : "none",
+        boxShadow: hovered ? "0 8px 32px rgba(0,0,0,0.35), 0 0 40px rgba(201,160,80,0.04)" : "none",
+        minWidth: 0,
+        maxWidth: "100%",
+        overflow: "hidden",
       }}
     >
-      {/* Image */}
+      {/* ════════════════════════════════════════════════════
+          DESKTOP LAYOUT — 3-column grid
+          
+          "hidden" by default (mobile-first)
+          "lg:grid" shows it at ≥1024px
+          
+          Tailwind class = bulletproof, no specificity wars
+          ════════════════════════════════════════════════════ */}
       <div
-        className="menu-item-img"
+        className="hidden lg:grid"
         style={{
-          width: "100%",
-          height: "100%",
-          minHeight: "clamp(90px, 12vw, 130px)",
-          overflow: "hidden",
-          position: "relative",
-          borderRadius: "inherit",
+          gridTemplateColumns: "clamp(90px, 12vw, 130px) 1fr auto",
+          alignItems: "stretch",
         }}
       >
-        <Image
-          src={item.img}
-          alt={item.name}
-          width={130}
-          height={130}
-          loading="lazy"
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            transition: "transform 0.6s cubic-bezier(0.16,1,0.3,1), filter 0.4s",
-            filter: hovered ? "brightness(0.95) saturate(1.2)" : "brightness(0.8) saturate(1.1)",
-            transform: hovered ? "scale(1.08)" : "scale(1)",
-          }}
-        />
-        {/* Fade to card bg */}
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background: hovered
-              ? "linear-gradient(90deg, transparent 50%, rgb(var(--bg-elevated)) 100%)"
-              : "linear-gradient(90deg, transparent 50%, rgba(12,10,7,0.8) 100%)",
-            pointerEvents: "none",
-            transition: "background 0.4s",
-          }}
-        />
-        {/* Running Low badge on image */}
-        {isLow && (
-          <div
-            style={{
-              position: "absolute",
-              top: 8,
-              left: 8,
-              background: "rgba(232,196,104,0.9)",
-              color: "#1a1508",
-              fontSize: 8,
-              fontWeight: 700,
-              fontFamily: "var(--font-body)",
-              letterSpacing: 1,
-              textTransform: "uppercase",
-              padding: "3px 7px",
-              borderRadius: 4,
-            }}
-          >
-            Few Left
-          </div>
-        )}
-      </div>
-
-      {/* Info */}
-      <div
-        className="menu-item-info"
-        style={{
-          padding: "clamp(12px, 2vw, 18px) clamp(12px, 2vw, 20px)",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
-          minWidth: 0,
-        }}
-      >
-        {/* Name + badge tags */}
-        <div style={{ display: "flex", alignItems: "center", gap: "clamp(6px, 1vw, 10px)", marginBottom: "clamp(4px, 0.6vw, 6px)", flexWrap: "wrap" }}>
-          <span
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "clamp(15px, 1.8vw, 18px)",
-              fontWeight: 500,
-              color: "#fff",
-              letterSpacing: 0.3,
-            }}
-          >
-            {item.name}
-          </span>
-          {badgeTags.map((tag) => {
-            const s = TAG_STYLES[tag];
-            return (
-              <span
-                key={tag}
-                style={{
-                  fontSize: "clamp(8px, 1.2vw, 9px)",
-                  letterSpacing: 1.5,
-                  textTransform: "uppercase",
-                  padding: "3px 8px",
-                  borderRadius: 4,
-                  fontWeight: 700,
-                  fontFamily: "var(--font-body)",
-                  background: s.bg,
-                  color: s.color,
-                  border: `1px solid ${s.border}`,
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {s.label}
-              </span>
-            );
-          })}
+        {/* Image */}
+        <div style={{ width: "100%", height: "100%", minHeight: "clamp(90px, 12vw, 130px)", overflow: "hidden", position: "relative", borderRadius: "clamp(12px, 1.5vw, 16px) 0 0 clamp(12px, 1.5vw, 16px)" }}>
+          <Image src={item.img} alt={item.name} width={130} height={130} loading="lazy"
+            style={{ width: "100%", height: "100%", objectFit: "cover", transition: "transform 0.6s cubic-bezier(0.16,1,0.3,1), filter 0.4s", filter: hovered ? "brightness(0.95) saturate(1.2)" : "brightness(0.8) saturate(1.1)", transform: hovered ? "scale(1.08)" : "scale(1)" }}
+          />
+          <div style={{ position: "absolute", inset: 0, background: hovered ? "linear-gradient(90deg, transparent 50%, rgb(var(--bg-elevated)) 100%)" : "linear-gradient(90deg, transparent 50%, rgba(12,10,7,0.8) 100%)", pointerEvents: "none", transition: "background 0.4s" }} />
+          {isLow && (
+            <div style={{ position: "absolute", top: 8, left: 8, background: "rgba(232,196,104,0.9)", color: "#1a1508", fontSize: 8, fontWeight: 700, fontFamily: "var(--font-body)", letterSpacing: 1, textTransform: "uppercase", padding: "3px 7px", borderRadius: 4 }}>
+              Few Left
+            </div>
+          )}
         </div>
 
-        {/* Description */}
-        {item.desc && (
-          <p
-            className="menu-item-desc"
-            style={{
-              fontFamily: "var(--font-body)",
-              fontSize: "clamp(11px, 1.3vw, 12.5px)",
-              color: "rgba(255,255,255,0.4)",
-              fontWeight: 300,
-              lineHeight: 1.55,
-              letterSpacing: 0.2,
-              margin: 0,
-              display: "-webkit-box",
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: "vertical",
-              overflow: "hidden",
-              wordBreak: "break-word",
-              maxWidth: "100%",
-            }}
-          >
-            {item.desc}
-          </p>
-        )}
-
-        {/* Dietary tags */}
-        {dietaryTags.length > 0 && (
-          <div style={{ display: "flex", gap: 5, marginTop: "clamp(4px, 0.8vw, 8px)" }}>
-            {dietaryTags.map((tag) => {
-              const s = TAG_STYLES[tag];
-              return (
-                <span
-                  key={tag}
-                  style={{
-                    fontSize: "clamp(8px, 1.2vw, 9px)",
-                    letterSpacing: 1,
-                    textTransform: "uppercase",
-                    padding: "2px 6px",
-                    borderRadius: 3,
-                    fontWeight: 700,
-                    fontFamily: "var(--font-body)",
-                    background: s.bg,
-                    color: s.color,
-                    border: `1px solid ${s.border}`,
-                  }}
-                >
-                  {s.label}
-                </span>
-              );
-            })}
+        {/* Info */}
+        <div style={{ padding: "clamp(12px, 2vw, 18px) clamp(12px, 2vw, 20px)", display: "flex", flexDirection: "column", justifyContent: "center", minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "clamp(6px, 1vw, 10px)", marginBottom: "clamp(4px, 0.6vw, 6px)", flexWrap: "wrap" }}>
+            <span style={{ fontFamily: "var(--font-display)", fontSize: "clamp(15px, 1.8vw, 18px)", fontWeight: 500, color: "#fff", letterSpacing: 0.3 }}>{item.name}</span>
+            <BadgeTags tags={tags} />
           </div>
-        )}
+          {item.desc && (
+            <p style={{ fontFamily: "var(--font-body)", fontSize: "clamp(11px, 1.3vw, 12.5px)", color: "rgba(255,255,255,0.4)", fontWeight: 300, lineHeight: 1.55, letterSpacing: 0.2, margin: 0, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", wordBreak: "break-word" }}>
+              {item.desc}
+            </p>
+          )}
+          <DietaryTags tags={tags} />
+        </div>
+
+        {/* Price + Add (desktop) */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "clamp(14px, 2vw, 18px) clamp(14px, 2vw, 22px)", gap: 14, borderLeft: "1px solid rgba(255,255,255,0.04)", minWidth: "clamp(90px, 10vw, 110px)", background: "rgba(0,0,0,0.12)" }}>
+          <span style={{ fontFamily: "var(--font-accent)", fontSize: "clamp(20px, 2.5vw, 24px)", fontWeight: 600, color: "#C9A050", letterSpacing: 0.5 }}>
+            ${item.price}
+          </span>
+          <ActionButton item={item} categoryKey={categoryKey} onAdded={onAdded} variant="desktop" />
+        </div>
       </div>
 
-      {/* Mobile price + Add row — own grid row spanning full width (visible only on small screens) */}
-      <div
-        className="menu-item-price-mobile"
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          display: "none",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 12,
-        }}
-      >
-        <span
+      {/* ════════════════════════════════════════════════════
+          MOBILE LAYOUT — stacked rows
+          
+          "block" by default (mobile-first) — ALWAYS VISIBLE
+          "lg:hidden" hides it at ≥1024px
+          
+          The price + button row is a plain flex div.
+          It CANNOT be clipped. Period.
+          ════════════════════════════════════════════════════ */}
+      <div className="block lg:hidden" style={{ minWidth: 0 }}>
+        {/* Top row: image + info */}
+        <div className="grid" style={{ gridTemplateColumns: "clamp(70px, 22vw, 90px) 1fr", alignItems: "stretch" }}>
+          {/* Image */}
+          <div style={{ width: "100%", height: "100%", minHeight: 70, overflow: "hidden", position: "relative", borderRadius: "clamp(12px, 1.5vw, 16px) 0 0 0" }}>
+            <Image src={item.img} alt={item.name} width={90} height={90} loading="lazy"
+              style={{ width: "100%", height: "100%", objectFit: "cover", filter: "brightness(0.8) saturate(1.1)" }}
+            />
+            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg, transparent 50%, rgba(12,10,7,0.8) 100%)", pointerEvents: "none" }} />
+            {isLow && (
+              <div style={{ position: "absolute", top: 6, left: 6, background: "rgba(232,196,104,0.9)", color: "#1a1508", fontSize: 7, fontWeight: 700, fontFamily: "var(--font-body)", letterSpacing: 1, textTransform: "uppercase", padding: "2px 6px", borderRadius: 3 }}>
+                Few Left
+              </div>
+            )}
+          </div>
+
+          {/* Info */}
+          <div style={{ padding: "12px 14px", display: "flex", flexDirection: "column", justifyContent: "center", minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+              <span style={{ fontFamily: "var(--font-display)", fontSize: 15, fontWeight: 500, color: "#fff", letterSpacing: 0.3 }}>{item.name}</span>
+              <BadgeTags tags={tags} />
+            </div>
+            {item.desc && (
+              <p className="line-clamp-2 sm:line-clamp-1" style={{ fontFamily: "var(--font-body)", fontSize: 11.5, color: "rgba(255,255,255,0.4)", fontWeight: 300, lineHeight: 1.5, margin: 0, wordBreak: "break-word" }}>
+                {item.desc}
+              </p>
+            )}
+            <DietaryTags tags={tags} />
+          </div>
+        </div>
+
+        {/* ── PRICE + ADD BUTTON ROW ──
+            This is a simple flex row. 
+            No grid tricks, no overflow issues.
+            The button is ALWAYS here. */}
+        <div
+          onClick={(e) => e.stopPropagation()}
           style={{
-            fontFamily: "var(--font-accent)",
-            fontSize: 20,
-            fontWeight: 600,
-            color: "#C9A050",
-            flexShrink: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "10px 14px 12px",
+            borderTop: "1px solid rgba(255,255,255,0.04)",
+            minHeight: 48,
           }}
         >
-          ${item.price}
-        </span>
-        {cartItem ? (
-          <QtyStepper
-            qty={cartItem.qty}
-            onInc={() => updateQty(item.name, categoryKey, cartItem.qty + 1)}
-            onDec={() => {
-              if (cartItem.qty <= 1) removeItem(item.name, categoryKey);
-              else updateQty(item.name, categoryKey, cartItem.qty - 1);
-            }}
-          />
-        ) : (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleAdd();
-            }}
-            aria-label={`Add ${item.name} to order`}
-            className="menu-add-btn"
-            style={{
-              padding: "8px 20px",
-              borderRadius: 10,
-              border: "1px solid rgba(201,160,80,0.4)",
-              background: "rgba(201,160,80,0.12)",
-              color: "#C9A050",
-              cursor: "pointer",
-              fontSize: 13,
-              fontWeight: 700,
-              fontFamily: "var(--font-body)",
-              letterSpacing: 0.5,
-              transition: "all 0.2s",
-              minHeight: 38,
-              minWidth: 72,
-              whiteSpace: "nowrap",
-              flexShrink: 0,
-            }}
-          >
-            + Add
-          </button>
-        )}
-      </div>
-
-      {/* Price + Add/Qty — desktop only */}
-      <div
-        className="menu-item-price-col"
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "clamp(14px, 2vw, 18px) clamp(14px, 2vw, 22px)",
-          gap: 14,
-          borderLeft: "1px solid rgba(255,255,255,0.04)",
-          minWidth: "clamp(90px, 10vw, 110px)",
-          background: "rgba(0,0,0,0.12)",
-        }}
-      >
-        <span
-          style={{
-            fontFamily: "var(--font-accent)",
-            fontSize: "clamp(20px, 2.5vw, 24px)",
-            fontWeight: 600,
-            color: "#C9A050",
-            letterSpacing: 0.5,
-          }}
-        >
-          ${item.price}
-        </span>
-
-        {cartItem ? (
-          <QtyStepper
-            qty={cartItem.qty}
-            onInc={() => updateQty(item.name, categoryKey, cartItem.qty + 1)}
-            onDec={() => {
-              if (cartItem.qty <= 1) removeItem(item.name, categoryKey);
-              else updateQty(item.name, categoryKey, cartItem.qty - 1);
-            }}
-          />
-        ) : (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleAdd();
-            }}
-            aria-label={`Add ${item.name} to order`}
-            style={{
-              width: 42,
-              height: 42,
-              borderRadius: 12,
-              border: "1px solid rgba(255,255,255,0.08)",
-              background: "rgb(var(--bg-elevated))",
-              color: "rgba(255,255,255,0.45)",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              transition: "all 0.3s",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = "#C9A050";
-              e.currentTarget.style.color = "#C9A050";
-              e.currentTarget.style.background = "rgba(201,160,80,0.1)";
-              e.currentTarget.style.boxShadow = "0 0 20px rgba(201,160,80,0.1)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
-              e.currentTarget.style.color = "rgba(255,255,255,0.45)";
-              e.currentTarget.style.background = "rgb(var(--bg-elevated))";
-              e.currentTarget.style.boxShadow = "none";
-            }}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 5v14m-7-7h14" />
-            </svg>
-          </button>
-        )}
+          <span style={{ fontFamily: "var(--font-accent)", fontSize: 18, fontWeight: 600, color: "#C9A050" }}>
+            ${item.price}
+          </span>
+          <ActionButton item={item} categoryKey={categoryKey} onAdded={onAdded} variant="mobile" />
+        </div>
       </div>
     </div>
   );
@@ -486,68 +377,24 @@ function CategorySection({
   inventoryStatuses: Record<string, ItemStatus>;
 }) {
   return (
-    <section style={{ padding: "clamp(24px, 4vw, 40px) 0 10px" }}>
-      {/* Header */}
+    <section style={{ padding: "clamp(24px, 4vw, 40px) 0 10px", minWidth: 0 }}>
       <div style={{ display: "flex", alignItems: "center", gap: "clamp(10px, 2vw, 18px)", marginBottom: "clamp(14px, 2.5vw, 28px)" }}>
-        <div
-          style={{
-            width: "clamp(36px, 5vw, 48px)",
-            height: "clamp(36px, 5vw, 48px)",
-            borderRadius: 12,
-            overflow: "hidden",
-            flexShrink: 0,
-            border: "1px solid rgba(255,255,255,0.06)",
-            position: "relative",
-          }}
-        >
+        <div style={{ width: "clamp(36px, 5vw, 48px)", height: "clamp(36px, 5vw, 48px)", borderRadius: 12, overflow: "hidden", flexShrink: 0, border: "1px solid rgba(255,255,255,0.06)", position: "relative" }}>
           <Image src={img} alt="" width={48} height={48} style={{ objectFit: "cover", width: "100%", height: "100%" }} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <h2
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "clamp(20px, 2.8vw, 26px)",
-              fontWeight: 500,
-              color: "#fff",
-              letterSpacing: 0.5,
-              margin: 0,
-            }}
-          >
+          <h2 style={{ fontFamily: "var(--font-display)", fontSize: "clamp(20px, 2.8vw, 26px)", fontWeight: 500, color: "#fff", letterSpacing: 0.5, margin: 0 }}>
             {label}
           </h2>
-          <div
-            style={{
-              fontFamily: "var(--font-body)",
-              fontSize: "clamp(10px, 1.2vw, 12px)",
-              color: "rgba(255,255,255,0.25)",
-              fontWeight: 300,
-              letterSpacing: 0.5,
-              marginTop: 2,
-            }}
-          >
-            {items.length} {items.length === 1 ? "dish" : "dishes"} · Starting from $
-            {Math.min(...items.map((i) => i.price))}
+          <div style={{ fontFamily: "var(--font-body)", fontSize: "clamp(10px, 1.2vw, 12px)", color: "rgba(255,255,255,0.25)", fontWeight: 300, letterSpacing: 0.5, marginTop: 2 }}>
+            {items.length} {items.length === 1 ? "dish" : "dishes"} · Starting from ${Math.min(...items.map((i) => i.price))}
           </div>
         </div>
-        <div
-          style={{
-            flex: 1,
-            height: 1,
-            background: "linear-gradient(90deg, rgba(201,160,80,0.15), transparent)",
-          }}
-        />
+        <div style={{ flex: 1, height: 1, background: "linear-gradient(90deg, rgba(201,160,80,0.15), transparent)" }} />
       </div>
-
-      {/* Items */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "clamp(8px, 1vw, 10px)" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: "clamp(8px, 1vw, 10px)", minWidth: 0 }}>
         {items.map((item) => (
-          <MenuItemCard
-            key={item.name}
-            item={item}
-            categoryKey={categoryKey}
-            onAdded={onItemAdded}
-            inventoryStatus={inventoryStatuses[item.name] ?? "available"}
-          />
+          <MenuItemCard key={item.name} item={item} categoryKey={categoryKey} onAdded={onItemAdded} inventoryStatus={inventoryStatuses[item.name] ?? "available"} />
         ))}
       </div>
     </section>
@@ -564,7 +411,6 @@ export default function MenuBrowser() {
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  /* ── Inventory: real-time Firestore subscription ── */
   const [inventoryStatuses, setInventoryStatuses] = useState<Record<string, ItemStatus>>({});
 
   useEffect(() => {
@@ -572,37 +418,27 @@ export default function MenuBrowser() {
       const next: Record<string, ItemStatus> = {};
       snapshot.forEach((docSnap) => {
         const data = docSnap.data();
-        if (data.name && data.status) {
-          next[data.name as string] = data.status as ItemStatus;
-        }
+        if (data.name && data.status) next[data.name as string] = data.status as ItemStatus;
       });
       setInventoryStatuses(next);
     });
     return () => unsub();
   }, []);
 
-  /* Show toast */
   const showToast = (name: string) => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
     setToast({ show: true, message: `${name} added to your order` });
     toastTimer.current = setTimeout(() => setToast({ show: false, message: "" }), 2600);
   };
 
-  /* Filter items by search AND hide items that are "out" (86'd) */
   const filteredCategories = useMemo(() => {
     const q = search.toLowerCase().trim();
     return categories
       .map((cat) => {
         const items = menuData[cat.key] ?? [];
         const filtered = items.filter((item) => {
-          const status = inventoryStatuses[item.name] ?? "available";
-          if (status === "86") return false;
-          if (q) {
-            return (
-              item.name.toLowerCase().includes(q) ||
-              (item.desc?.toLowerCase().includes(q) ?? false)
-            );
-          }
+          if ((inventoryStatuses[item.name] ?? "available") === "86") return false;
+          if (q) return item.name.toLowerCase().includes(q) || (item.desc?.toLowerCase().includes(q) ?? false);
           return true;
         });
         return { ...cat, items: filtered };
@@ -610,20 +446,16 @@ export default function MenuBrowser() {
       .filter((cat) => cat.items.length > 0);
   }, [search, inventoryStatuses]);
 
-  /* Categories to display based on active tab */
   const displayCategories = useMemo(() => {
     if (activeTab === "all") return filteredCategories;
     return filteredCategories.filter((c) => c.key === activeTab);
   }, [activeTab, filteredCategories]);
 
-  /* Total item count per category (only available items) */
   const catCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     let total = 0;
     categories.forEach((cat) => {
-      const available = (menuData[cat.key] ?? []).filter(
-        (item) => (inventoryStatuses[item.name] ?? "available") !== "86"
-      ).length;
+      const available = (menuData[cat.key] ?? []).filter((item) => (inventoryStatuses[item.name] ?? "available") !== "86").length;
       counts[cat.key] = available;
       total += available;
     });
@@ -631,7 +463,6 @@ export default function MenuBrowser() {
     return counts;
   }, [inventoryStatuses]);
 
-  /* Scroll to category section on tab click */
   const handleTabClick = (key: string) => {
     setActiveTab(key);
     if (key !== "all" && sectionRefs.current[key]) {
@@ -640,43 +471,23 @@ export default function MenuBrowser() {
   };
 
   return (
-    <main style={{ borderRight: "1px solid rgba(255,255,255,0.04)" }}>
+    <main style={{ borderRight: "1px solid rgba(255,255,255,0.04)", minWidth: 0, overflow: "hidden" }}>
       {/* ── Sticky category tabs ── */}
       <nav
         className="order-cat-nav"
         style={{
-          position: "sticky",
-          top: 76,
-          zIndex: 50,
-          background: "rgba(8,6,3,0.95)",
-          backdropFilter: "blur(16px)",
-          borderBottom: "1px solid rgba(255,255,255,0.04)",
-          padding: "0 clamp(12px, 3vw, 48px)",
-          display: "flex",
-          alignItems: "stretch",
-          gap: 0,
-          overflowX: "auto",
-          WebkitOverflowScrolling: "touch",
+          position: "sticky", top: 76, zIndex: 50, background: "rgba(8,6,3,0.95)",
+          backdropFilter: "blur(16px)", borderBottom: "1px solid rgba(255,255,255,0.04)",
+          padding: "0 clamp(12px, 3vw, 48px)", display: "flex", alignItems: "stretch",
+          gap: 0, overflowX: "auto", WebkitOverflowScrolling: "touch",
         }}
       >
-        {/* "All" tab */}
-        <button
-          onClick={() => handleTabClick("all")}
-          className={`order-cat-tab ${activeTab === "all" ? "order-cat-tab-active" : ""}`}
-          style={tabStyle(activeTab === "all")}
-        >
+        <button onClick={() => handleTabClick("all")} className={`order-cat-tab ${activeTab === "all" ? "order-cat-tab-active" : ""}`} style={tabStyle(activeTab === "all")}>
           All <span style={tabCountStyle(activeTab === "all")}>{catCounts.all}</span>
         </button>
-
         {categories.map((cat) => (
-          <button
-            key={cat.key}
-            onClick={() => handleTabClick(cat.key)}
-            className={`order-cat-tab ${activeTab === cat.key ? "order-cat-tab-active" : ""}`}
-            style={tabStyle(activeTab === cat.key)}
-          >
-            {cat.label}{" "}
-            <span style={tabCountStyle(activeTab === cat.key)}>{catCounts[cat.key]}</span>
+          <button key={cat.key} onClick={() => handleTabClick(cat.key)} className={`order-cat-tab ${activeTab === cat.key ? "order-cat-tab-active" : ""}`} style={tabStyle(activeTab === cat.key)}>
+            {cat.label} <span style={tabCountStyle(activeTab === cat.key)}>{catCounts[cat.key]}</span>
           </button>
         ))}
       </nav>
@@ -684,110 +495,60 @@ export default function MenuBrowser() {
       {/* ── Search bar ── */}
       <div style={{ padding: "clamp(14px, 2.5vw, 28px) clamp(12px, 3vw, 48px) 0" }}>
         <div style={{ position: "relative" }}>
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="rgba(255,255,255,0.2)"
-            strokeWidth="1.5"
-            style={{ position: "absolute", left: "clamp(14px, 2vw, 20px)", top: "50%", transform: "translateY(-50%)" }}
-          >
-            <circle cx="11" cy="11" r="8" />
-            <path d="M21 21l-4.35-4.35" />
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5" style={{ position: "absolute", left: "clamp(14px, 2vw, 20px)", top: "50%", transform: "translateY(-50%)" }}>
+            <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
           </svg>
           <input
-            type="text"
-            placeholder="Search dishes, ingredients..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setActiveTab("all");
-            }}
-            style={{
-              width: "100%",
-              padding: "clamp(12px, 1.8vw, 16px) 22px clamp(12px, 1.8vw, 16px) clamp(40px, 5vw, 52px)",
-              background: "rgb(var(--bg-secondary))",
-              border: "1px solid rgba(255,255,255,0.05)",
-              borderRadius: 14,
-              fontFamily: "var(--font-body)",
-              fontSize: 16,
-              color: "#fff",
-              outline: "none",
-              transition: "border-color 0.3s, box-shadow 0.3s",
-              WebkitAppearance: "none",
-            }}
-            onFocus={(e) => {
-              e.currentTarget.style.borderColor = "rgba(183,143,82,0.25)";
-              e.currentTarget.style.boxShadow = "0 0 40px rgba(201,160,80,0.04)";
-            }}
-            onBlur={(e) => {
-              e.currentTarget.style.borderColor = "rgba(255,255,255,0.05)";
-              e.currentTarget.style.boxShadow = "none";
-            }}
+            type="text" placeholder="Search dishes, ingredients..." value={search}
+            onChange={(e) => { setSearch(e.target.value); setActiveTab("all"); }}
+            style={{ width: "100%", padding: "clamp(12px, 1.8vw, 16px) 22px clamp(12px, 1.8vw, 16px) clamp(40px, 5vw, 52px)", background: "rgb(var(--bg-secondary))", border: "1px solid rgba(255,255,255,0.05)", borderRadius: 14, fontFamily: "var(--font-body)", fontSize: 16, color: "#fff", outline: "none", transition: "border-color 0.3s, box-shadow 0.3s", WebkitAppearance: "none" }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(183,143,82,0.25)"; e.currentTarget.style.boxShadow = "0 0 40px rgba(201,160,80,0.04)"; }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.05)"; e.currentTarget.style.boxShadow = "none"; }}
           />
         </div>
       </div>
 
       {/* ── Category sections ── */}
-      <div style={{ padding: "0 clamp(12px, 3vw, 48px) clamp(80px, 12vw, 100px)" }}>
+      <div style={{ padding: "0 clamp(12px, 3vw, 48px) clamp(80px, 12vw, 100px)", minWidth: 0 }}>
         {displayCategories.length === 0 ? (
-          <div
-            style={{
-              textAlign: "center",
-              padding: "clamp(40px, 8vw, 80px) 0",
-              fontFamily: "var(--font-body)",
-              color: "rgba(255,255,255,0.25)",
-              fontSize: 14,
-            }}
-          >
+          <div style={{ textAlign: "center", padding: "clamp(40px, 8vw, 80px) 0", fontFamily: "var(--font-body)", color: "rgba(255,255,255,0.25)", fontSize: 14 }}>
             No dishes found for &ldquo;{search}&rdquo;
           </div>
         ) : (
           displayCategories.map((cat) => (
             <div key={cat.key} ref={(el) => { sectionRefs.current[cat.key] = el; }}>
-              <CategorySection
-                categoryKey={cat.key}
-                label={cat.label}
-                img={cat.img}
-                items={cat.items}
-                onItemAdded={showToast}
-                inventoryStatuses={inventoryStatuses}
-              />
+              <CategorySection categoryKey={cat.key} label={cat.label} img={cat.img} items={cat.items} onItemAdded={showToast} inventoryStatuses={inventoryStatuses} />
             </div>
           ))
         )}
       </div>
 
       {/* ── Bottom spacer for mobile cart bar ── */}
-      <div className="menu-bottom-spacer" />
+      <div className="h-0 lg:h-0" style={{ height: 0 }} />
+      <div className="block lg:hidden" style={{ height: 88 }} />
 
       {/* ── Toast ── */}
       <Toast message={toast.message} show={toast.show} />
 
-      {/* ── Responsive styles ── */}
+      {/* ═══════════════════════════════════════════════════════
+          MINIMAL CSS — only for nav tab styling and touch feedback.
+          
+          ALL layout switching is now handled by Tailwind classes:
+            hidden lg:grid   → desktop layout
+            block lg:hidden  → mobile layout
+          
+          No more display:none / display:block !important wars.
+          ═══════════════════════════════════════════════════════ */}
       <style>{`
         .order-cat-nav::-webkit-scrollbar { display: none; }
         .order-cat-nav { scrollbar-width: none; }
 
-        /* Desktop: clip image scale on hover; mobile: visible so Add button isn't clipped */
-        @media (min-width: 1025px) {
-          .menu-item-card { overflow: hidden; }
-        }
-
-        /* Desktop: no bottom spacer needed */
-        .menu-bottom-spacer { height: 0; }
-
-        /* ── Mobile: pill tabs + bottom spacer ── */
         @media (max-width: 1024px) {
-          /* Sticky nav adjusts for 56px mobile header */
           .order-cat-nav {
             top: 56px !important;
             padding: 10px 16px !important;
             gap: 8px !important;
           }
-
-          /* Pill-style tabs on mobile */
           .order-cat-tab {
             padding: 8px 16px !important;
             border-radius: 20px !important;
@@ -802,50 +563,6 @@ export default function MenuBrowser() {
             background: rgba(201,160,80,0.12) !important;
             border-color: rgba(201,160,80,0.15) !important;
           }
-
-          /* Spacer so last items aren't hidden behind fixed cart bar */
-          .menu-bottom-spacer {
-            height: 88px;
-          }
-        }
-
-        /* Mobile: stacked layout — image+info in row 1, price+Add full-width row 2 */
-        @media (max-width: 1024px) {
-          .menu-item-card {
-            grid-template-columns: 80px 1fr !important;
-            grid-template-rows: auto auto !important;
-            transform: none !important;
-            box-shadow: none !important;
-          }
-          .menu-item-price-col {
-            display: none !important;
-          }
-          .menu-item-price-mobile {
-            display: flex !important;
-            grid-column: 1 / -1 !important;
-            padding: 8px 12px 12px !important;
-            justify-content: space-between !important;
-            align-items: center !important;
-            border-top: 1px solid rgba(255,255,255,0.04) !important;
-          }
-          .menu-item-img {
-            min-height: 80px !important;
-            border-radius: 12px 0 0 0 !important;
-          }
-          .menu-item-desc {
-            -webkit-line-clamp: 2 !important;
-          }
-        }
-
-        /* Extra compact on small phones */
-        @media (max-width: 480px) {
-          .menu-item-img {
-            min-height: 80px !important;
-            border-radius: 10px 0 0 0 !important;
-          }
-          .menu-item-desc {
-            -webkit-line-clamp: 1 !important;
-          }
         }
 
         @media (hover: none) and (pointer: coarse) {
@@ -856,12 +573,6 @@ export default function MenuBrowser() {
           .menu-item-card:active {
             background: rgb(var(--bg-elevated)) !important;
             border-color: rgba(183,143,82,0.15) !important;
-            transform: scale(0.98) !important;
-          }
-          .menu-add-btn:active {
-            background: rgba(201,160,80,0.3) !important;
-            border-color: rgba(201,160,80,0.6) !important;
-            transform: scale(0.95) !important;
           }
         }
       `}</style>
@@ -873,27 +584,14 @@ export default function MenuBrowser() {
 function tabStyle(active: boolean): React.CSSProperties {
   return {
     padding: "clamp(14px, 2vw, 18px) clamp(14px, 2.5vw, 24px)",
-    fontSize: "clamp(10px, 1.2vw, 11px)",
-    letterSpacing: "clamp(1px, 0.3vw, 2px)",
-    textTransform: "uppercase",
-    color: active ? "#C9A050" : "rgba(255,255,255,0.25)",
-    background: "none",
-    border: "none",
-    borderBottom: `2px solid ${active ? "#C9A050" : "transparent"}`,
-    cursor: "pointer",
-    transition: "all 0.3s",
-    whiteSpace: "nowrap",
-    fontFamily: "var(--font-body)",
-    fontWeight: active ? 600 : 500,
-    minHeight: 44,
+    fontSize: "clamp(10px, 1.2vw, 11px)", letterSpacing: "clamp(1px, 0.3vw, 2px)",
+    textTransform: "uppercase", color: active ? "#C9A050" : "rgba(255,255,255,0.25)",
+    background: "none", border: "none", borderBottom: `2px solid ${active ? "#C9A050" : "transparent"}`,
+    cursor: "pointer", transition: "all 0.3s", whiteSpace: "nowrap",
+    fontFamily: "var(--font-body)", fontWeight: active ? 600 : 500, minHeight: 44,
   };
 }
 
 function tabCountStyle(active: boolean): React.CSSProperties {
-  return {
-    fontSize: 9,
-    color: active ? "#C9A050" : "rgba(255,255,255,0.15)",
-    marginLeft: 5,
-    fontWeight: 400,
-  };
+  return { fontSize: 9, color: active ? "#C9A050" : "rgba(255,255,255,0.15)", marginLeft: 5, fontWeight: 400 };
 }
