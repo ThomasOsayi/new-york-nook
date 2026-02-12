@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, createRef } from "react";
+import { useRef, createRef, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
 import SigDishes from "@/components/SigDishes";
@@ -23,6 +23,12 @@ export default function HomePage() {
     refs.current[section]?.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.location.hash === "#order-takeout") {
+      refs.current.Order?.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, []);
+
   return (
     <div style={{ background: "#080603", minHeight: "100vh" }}>
       <Navbar onNav={scrollTo} />
@@ -41,7 +47,7 @@ export default function HomePage() {
         <GallerySection />
       </div>
 
-      <div ref={refs.current.Order}>
+      <div ref={refs.current.Order} id="order-takeout">
         <OrderSection />
       </div>
 

@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect } from "react";
 import Image from "next/image";
-import { categories, menuData } from "@/data/menu";
+import { categories } from "@/data/menu";
 import { useCart, type CartItem } from "@/components/order/Cartcontext";
 import type { MenuItem } from "@/data/menu";
 import { db } from "@/lib/firebase";
@@ -202,14 +202,6 @@ function DietaryTags({ tags }: { tags: string[] }) {
 
 /* ══════════════════════════════════════════════════════════════
    MenuItemCard
-   
-   THE FIX: Two separate layout divs toggled with Tailwind
-   responsive classes (className="hidden lg:grid" etc.)
-   instead of inline style={{ display:"none" }} + <style> blocks.
-   
-   This is the same pattern AstiGlow uses for mobile buttons.
-   Tailwind classes are compiled at build time and cannot be
-   overridden by cascade/specificity issues.
    ══════════════════════════════════════════════════════════════ */
 function MenuItemCard({
   item,
@@ -246,11 +238,6 @@ function MenuItemCard({
     >
       {/* ════════════════════════════════════════════════════
           DESKTOP LAYOUT — 3-column grid
-          
-          "hidden" by default (mobile-first)
-          "lg:grid" shows it at ≥1024px
-          
-          Tailwind class = bulletproof, no specificity wars
           ════════════════════════════════════════════════════ */}
       <div
         className="hidden lg:grid"
@@ -297,12 +284,6 @@ function MenuItemCard({
 
       {/* ════════════════════════════════════════════════════
           MOBILE LAYOUT — stacked rows
-          
-          "block" by default (mobile-first) — ALWAYS VISIBLE
-          "lg:hidden" hides it at ≥1024px
-          
-          The price + button row is a plain flex div.
-          It CANNOT be clipped. Period.
           ════════════════════════════════════════════════════ */}
       <div className="block lg:hidden" style={{ minWidth: 0 }}>
         {/* Top row: image + info */}
@@ -335,10 +316,7 @@ function MenuItemCard({
           </div>
         </div>
 
-        {/* ── PRICE + ADD BUTTON ROW ──
-            This is a simple flex row. 
-            No grid tricks, no overflow issues.
-            The button is ALWAYS here. */}
+        {/* Price + Add button row */}
         <div
           onClick={(e) => e.stopPropagation()}
           style={{
@@ -411,6 +389,39 @@ export default function MenuBrowser() {
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
+  /* ── Menu items from Firestore ── */
+  const [firestoreMenu, setFirestoreMenu] = useState<Record<string, MenuItem[]>>({});
+  const [menuLoading, setMenuLoading] = useState(true);
+
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, "menuItems"), (snapshot) => {
+      const grouped: Record<string, MenuItem[]> = {};
+
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        const catKey = (data.categoryKey as string) || "coldAppetizers";
+        if (!grouped[catKey]) grouped[catKey] = [];
+        grouped[catKey].push({
+          name: data.name as string,
+          desc: (data.desc as string) ?? "",
+          price: data.price as number,
+          img: (data.img as string) || "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&q=80",
+          tags: (data.tags as MenuItem["tags"]) ?? [],
+        });
+      });
+
+      // Sort each category by sortOrder if available, otherwise keep insertion order
+      Object.keys(grouped).forEach((key) => {
+        grouped[key].sort((a, b) => (a.name > b.name ? 0 : -1)); // stable fallback
+      });
+
+      setFirestoreMenu(grouped);
+      setMenuLoading(false);
+    });
+    return () => unsub();
+  }, []);
+
+  /* ── Inventory statuses ── */
   const [inventoryStatuses, setInventoryStatuses] = useState<Record<string, ItemStatus>>({});
 
   useEffect(() => {
@@ -431,11 +442,14 @@ export default function MenuBrowser() {
     toastTimer.current = setTimeout(() => setToast({ show: false, message: "" }), 2600);
   };
 
+  /* ── Use Firestore data, fall back to empty while loading ── */
+  const menuDataSource = firestoreMenu;
+
   const filteredCategories = useMemo(() => {
     const q = search.toLowerCase().trim();
     return categories
       .map((cat) => {
-        const items = menuData[cat.key] ?? [];
+        const items = menuDataSource[cat.key] ?? [];
         const filtered = items.filter((item) => {
           if ((inventoryStatuses[item.name] ?? "available") === "86") return false;
           if (q) return item.name.toLowerCase().includes(q) || (item.desc?.toLowerCase().includes(q) ?? false);
@@ -444,7 +458,7 @@ export default function MenuBrowser() {
         return { ...cat, items: filtered };
       })
       .filter((cat) => cat.items.length > 0);
-  }, [search, inventoryStatuses]);
+  }, [search, inventoryStatuses, menuDataSource]);
 
   const displayCategories = useMemo(() => {
     if (activeTab === "all") return filteredCategories;
@@ -455,13 +469,13 @@ export default function MenuBrowser() {
     const counts: Record<string, number> = {};
     let total = 0;
     categories.forEach((cat) => {
-      const available = (menuData[cat.key] ?? []).filter((item) => (inventoryStatuses[item.name] ?? "available") !== "86").length;
+      const available = (menuDataSource[cat.key] ?? []).filter((item) => (inventoryStatuses[item.name] ?? "available") !== "86").length;
       counts[cat.key] = available;
       total += available;
     });
     counts.all = total;
     return counts;
-  }, [inventoryStatuses]);
+  }, [inventoryStatuses, menuDataSource]);
 
   const handleTabClick = (key: string) => {
     setActiveTab(key);
@@ -510,7 +524,11 @@ export default function MenuBrowser() {
 
       {/* ── Category sections ── */}
       <div style={{ padding: "0 clamp(12px, 3vw, 48px) clamp(80px, 12vw, 100px)", minWidth: 0 }}>
-        {displayCategories.length === 0 ? (
+        {menuLoading ? (
+          <div style={{ textAlign: "center", padding: "clamp(40px, 8vw, 80px) 0", fontFamily: "var(--font-body)", color: "rgba(255,255,255,0.25)", fontSize: 14 }}>
+            Loading menu…
+          </div>
+        ) : displayCategories.length === 0 ? (
           <div style={{ textAlign: "center", padding: "clamp(40px, 8vw, 80px) 0", fontFamily: "var(--font-body)", color: "rgba(255,255,255,0.25)", fontSize: 14 }}>
             No dishes found for &ldquo;{search}&rdquo;
           </div>
@@ -530,15 +548,7 @@ export default function MenuBrowser() {
       {/* ── Toast ── */}
       <Toast message={toast.message} show={toast.show} />
 
-      {/* ═══════════════════════════════════════════════════════
-          MINIMAL CSS — only for nav tab styling and touch feedback.
-          
-          ALL layout switching is now handled by Tailwind classes:
-            hidden lg:grid   → desktop layout
-            block lg:hidden  → mobile layout
-          
-          No more display:none / display:block !important wars.
-          ═══════════════════════════════════════════════════════ */}
+      {/* ── CSS ── */}
       <style>{`
         .order-cat-nav::-webkit-scrollbar { display: none; }
         .order-cat-nav { scrollbar-width: none; }

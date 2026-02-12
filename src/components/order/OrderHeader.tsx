@@ -181,10 +181,11 @@ export default function OrderHeader() {
             <span style={{ color: "#E8D5A3", fontWeight: 600 }}>25–35 min</span>
           </div>
 
-          {/* Desktop cart button — hidden on mobile */}
+          {/* Desktop cart button — scrolls to top where sidebar is visible */}
           <button
             className="order-cart-btn-desktop"
             aria-label={`View order, ${totalItems} items`}
+            onClick={() => window.dispatchEvent(new CustomEvent("open-cart-modal"))}
             style={{
               display: "flex",
               alignItems: "center",

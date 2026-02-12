@@ -1,20 +1,46 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useInView } from "@/hooks/useInView";
-import { menuData, categories } from "@/data/menu";
+import { categories } from "@/data/menu";
+import { db } from "@/lib/firebase";
+import { collection, onSnapshot } from "firebase/firestore";
+import type { MenuItem } from "@/data/menu";
 
 export default function MenuSection() {
   const [activeKey, setActiveKey] = useState("coldAppetizers");
-  const items = menuData[activeKey] || [];
   const activeCat = categories.find((c) => c.key === activeKey);
   const [sectionRef, visible] = useInView(0.08);
   const tabsRef = useRef<HTMLDivElement>(null);
 
+  /* ── Menu items from Firestore ── */
+  const [firestoreMenu, setFirestoreMenu] = useState<Record<string, MenuItem[]>>({});
+
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, "menuItems"), (snapshot) => {
+      const grouped: Record<string, MenuItem[]> = {};
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        const catKey = (data.categoryKey as string) || "coldAppetizers";
+        if (!grouped[catKey]) grouped[catKey] = [];
+        grouped[catKey].push({
+          name: data.name as string,
+          desc: (data.desc as string) ?? "",
+          price: data.price as number,
+          img: (data.img as string) || "",
+          tags: (data.tags as MenuItem["tags"]) ?? [],
+        });
+      });
+      setFirestoreMenu(grouped);
+    });
+    return () => unsub();
+  }, []);
+
+  const items = firestoreMenu[activeKey] || [];
+
   /* Scroll active tab into view on mobile */
   const handleTabClick = useCallback((key: string) => {
     setActiveKey(key);
-    /* Find the clicked button and scroll it into the visible area */
     setTimeout(() => {
       const container = tabsRef.current;
       if (!container) return;
@@ -100,7 +126,6 @@ export default function MenuSection() {
             scrollbarWidth: "none",
             msOverflowStyle: "none",
             padding: "0 0 8px",
-            /* Fade edges to hint scroll */
             maskImage: "linear-gradient(90deg, transparent 0%, black 3%, black 97%, transparent 100%)",
             WebkitMaskImage: "linear-gradient(90deg, transparent 0%, black 3%, black 97%, transparent 100%)",
             opacity: visible ? 1 : 0,
@@ -108,7 +133,6 @@ export default function MenuSection() {
             transition: "all 0.7s cubic-bezier(0.22,1,0.36,1) 0.15s",
           }}
         >
-          {/* Hide scrollbar */}
           <style jsx>{`
             div::-webkit-scrollbar { display: none; }
           `}</style>

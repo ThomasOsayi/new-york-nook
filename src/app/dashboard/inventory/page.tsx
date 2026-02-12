@@ -6,13 +6,17 @@ import { db } from "@/lib/firebase";
 import {
   doc,
   setDoc,
+  addDoc,
   onSnapshot,
   collection,
+  getDocs,
   writeBatch,
   serverTimestamp,
   Timestamp,
 } from "firebase/firestore";
 import { categories, menuData } from "@/data/menu";
+import EditItemModal from "./EditItemModal";
+import type { MenuItemDoc } from "./EditItemModal";
 
 /* ── Types ── */
 type ItemStatus = "available" | "low" | "86";
@@ -35,20 +39,6 @@ interface ActivityEntry {
   statusClass: string;
 }
 
-/* ── Build flat item list from menu data ── */
-const ALL_ITEMS = categories.flatMap((cat) =>
-  (menuData[cat.key] ?? []).map((item) => ({
-    name: item.name,
-    desc: item.desc ?? "",
-    price: item.price,
-    categoryKey: cat.key,
-    categoryLabel: cat.label,
-    tags: item.tags ?? [],
-  }))
-);
-
-const TOTAL_ITEMS = ALL_ITEMS.length;
-
 /* ── Status config ── */
 const STATUS_CONFIG: Record<
   ItemStatus,
@@ -64,7 +54,40 @@ const TAG_MAP: Record<string, { label: string; bg: string; color: string }> = {
   popular: { label: "popular", bg: "rgba(201,160,80,0.1)", color: "#C9A050" },
   new: { label: "new", bg: "rgba(96,165,250,0.1)", color: "#60A5FA" },
   spicy: { label: "spicy", bg: "rgba(239,68,68,0.1)", color: "#EF4444" },
+  gf: { label: "GF", bg: "rgba(138,173,138,0.08)", color: "#8aad8a" },
+  v: { label: "V", bg: "rgba(125,184,127,0.08)", color: "#7db87f" },
 };
+
+/* ── Seed helper: populate Firestore from static menu.ts (one-time) ── */
+async function seedMenuItems() {
+  const snapshot = await getDocs(collection(db, "menuItems"));
+  if (snapshot.size > 0) return; // Already seeded
+
+  console.log("[Inventory] Seeding menuItems collection from menu.ts…");
+  const batch = writeBatch(db);
+  let sortOrder = 0;
+
+  categories.forEach((cat) => {
+    const items = menuData[cat.key] ?? [];
+    items.forEach((item) => {
+      const docRef = doc(collection(db, "menuItems"));
+      batch.set(docRef, {
+        name: item.name,
+        desc: item.desc ?? "",
+        price: item.price,
+        img: item.img ?? "",
+        categoryKey: cat.key,
+        tags: item.tags ?? [],
+        sortOrder: sortOrder++,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+    });
+  });
+
+  await batch.commit();
+  console.log("[Inventory] Seeded", sortOrder, "menu items.");
+}
 
 /* ════════════════════════════════════════════
    Inventory Page
@@ -73,12 +96,12 @@ export default function InventoryPage() {
   const isMobile = useIsMobile();
   const isTablet = useIsTablet();
 
-  /* ── State ── */
-  const [statuses, setStatuses] = useState<Record<string, ItemStatus>>(() => {
-    const init: Record<string, ItemStatus> = {};
-    ALL_ITEMS.forEach((i) => (init[i.name] = "available"));
-    return init;
-  });
+  /* ── Menu items from Firestore ── */
+  const [menuItems, setMenuItems] = useState<MenuItemDoc[]>([]);
+  const [menuLoading, setMenuLoading] = useState(true);
+
+  /* ── Inventory statuses ── */
+  const [statuses, setStatuses] = useState<Record<string, ItemStatus>>({});
   const [activeCategory, setActiveCategory] = useState("all");
   const [search, setSearch] = useState("");
   const [activityLog, setActivityLog] = useState<ActivityEntry[]>([]);
@@ -87,19 +110,45 @@ export default function InventoryPage() {
   const [loading, setLoading] = useState(true);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  /* ── Firestore: subscribe to inventory collection ── */
+  /* ── Edit modal state ── */
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<MenuItemDoc | null>(null);
+
+  /* ── Seed + subscribe to menuItems ── */
+  useEffect(() => {
+    seedMenuItems().catch(console.error);
+
+    const unsub = onSnapshot(collection(db, "menuItems"), (snapshot) => {
+      const items: MenuItemDoc[] = snapshot.docs.map((d) => ({
+        id: d.id,
+        name: d.data().name ?? "",
+        desc: d.data().desc ?? "",
+        price: d.data().price ?? 0,
+        img: d.data().img ?? "",
+        categoryKey: d.data().categoryKey ?? "coldAppetizers",
+        tags: d.data().tags ?? [],
+        sortOrder: d.data().sortOrder ?? 0,
+        createdAt: d.data().createdAt,
+        updatedAt: d.data().updatedAt,
+      }));
+      items.sort((a, b) => a.sortOrder - b.sortOrder);
+      setMenuItems(items);
+      setMenuLoading(false);
+    });
+
+    return () => unsub();
+  }, []);
+
+  /* ── Subscribe to inventory statuses ── */
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "inventory"), (snapshot) => {
       const next: Record<string, ItemStatus> = {};
-      ALL_ITEMS.forEach((i) => (next[i.name] = "available"));
-
       snapshot.forEach((docSnap) => {
         const data = docSnap.data() as InventoryItem;
-        if (next[data.name] !== undefined) {
+        if (data.name && data.status) {
           next[data.name] = data.status;
         }
       });
-
       setStatuses(next);
       setLoading(false);
     });
@@ -127,13 +176,11 @@ export default function InventoryPage() {
   /* ── Set single item status → Firestore ── */
   const handleSetStatus = useCallback(
     async (name: string, categoryKey: string, newStatus: ItemStatus) => {
-      const old = statuses[name];
+      const old = statuses[name] ?? "available";
       if (old === newStatus) return;
 
-      // Optimistic update
       setStatuses((prev) => ({ ...prev, [name]: newStatus }));
 
-      // Activity log (local — stays in session)
       const timeStr = new Date().toLocaleTimeString("en-US", {
         hour: "numeric",
         minute: "2-digit",
@@ -154,7 +201,6 @@ export default function InventoryPage() {
 
       fireToast(`${name} marked as ${cfg.label}`, cfg.color);
 
-      // Write to Firestore
       const docId = name.replace(/[/\\. ]/g, "_");
       try {
         await setDoc(doc(db, "inventory", docId), {
@@ -174,18 +220,15 @@ export default function InventoryPage() {
 
   /* ── Reset All → Firestore batch ── */
   const handleResetAll = useCallback(async () => {
-    const changed = ALL_ITEMS.filter((i) => statuses[i.name] !== "available");
+    const changed = menuItems.filter((i) => (statuses[i.name] ?? "available") !== "available");
     if (changed.length === 0) {
       setShowResetModal(false);
       return;
     }
 
-    // Optimistic
-    setStatuses(() => {
-      const next: Record<string, ItemStatus> = {};
-      ALL_ITEMS.forEach((i) => (next[i.name] = "available"));
-      return next;
-    });
+    const resetStatuses: Record<string, ItemStatus> = {};
+    menuItems.forEach((i) => (resetStatuses[i.name] = "available"));
+    setStatuses(resetStatuses);
 
     const timeStr = new Date().toLocaleTimeString("en-US", {
       hour: "numeric",
@@ -207,7 +250,6 @@ export default function InventoryPage() {
     setShowResetModal(false);
     fireToast(`${changed.length} items reset to Available`, "#5FBF7A");
 
-    // Batch write
     try {
       const batch = writeBatch(db);
       changed.forEach((item) => {
@@ -224,19 +266,27 @@ export default function InventoryPage() {
     } catch (err) {
       console.error("Reset batch failed:", err);
     }
-  }, [statuses, fireToast]);
+  }, [menuItems, statuses, fireToast]);
 
   /* ── Computed stats ── */
+  const totalItems = menuItems.length;
+
   const stats = useMemo(() => {
-    const available = Object.values(statuses).filter((s) => s === "available").length;
-    const low = Object.values(statuses).filter((s) => s === "low").length;
-    const eightySixed = Object.values(statuses).filter((s) => s === "86").length;
+    let available = 0;
+    let low = 0;
+    let eightySixed = 0;
+    menuItems.forEach((item) => {
+      const s = statuses[item.name] ?? "available";
+      if (s === "available") available++;
+      else if (s === "low") low++;
+      else eightySixed++;
+    });
     return { available, low, eightySixed };
-  }, [statuses]);
+  }, [menuItems, statuses]);
 
   /* ── Filtered items ── */
   const filteredItems = useMemo(() => {
-    let items = ALL_ITEMS;
+    let items = menuItems;
     if (activeCategory !== "all") {
       items = items.filter((i) => i.categoryKey === activeCategory);
     }
@@ -247,23 +297,38 @@ export default function InventoryPage() {
       );
     }
     return items;
-  }, [activeCategory, search]);
+  }, [menuItems, activeCategory, search]);
 
   /* ── Category counts ── */
   const catCounts = useMemo(() => {
-    const counts: Record<string, number> = { all: ALL_ITEMS.length };
+    const counts: Record<string, number> = { all: menuItems.length };
     categories.forEach((cat) => {
-      counts[cat.key] = (menuData[cat.key] ?? []).length;
+      counts[cat.key] = menuItems.filter((i) => i.categoryKey === cat.key).length;
     });
     return counts;
-  }, []);
+  }, [menuItems]);
 
   /* ── 86'd / Low summary ── */
   const summaryItems = useMemo(() => {
-    const items86 = ALL_ITEMS.filter((i) => statuses[i.name] === "86");
-    const itemsLow = ALL_ITEMS.filter((i) => statuses[i.name] === "low");
+    const items86 = menuItems.filter((i) => (statuses[i.name] ?? "available") === "86");
+    const itemsLow = menuItems.filter((i) => (statuses[i.name] ?? "available") === "low");
     return { items86, itemsLow };
-  }, [statuses]);
+  }, [menuItems, statuses]);
+
+  /* ── Modal handlers ── */
+  const openCreateModal = () => {
+    setEditingItem(null);
+    setEditModalOpen(true);
+  };
+
+  const openEditModal = (item: MenuItemDoc) => {
+    setEditingItem(item);
+    setEditModalOpen(true);
+  };
+
+  const handleModalSaved = (message: string, color: string) => {
+    fireToast(message, color);
+  };
 
   /* ═══════════════════════════════════
      RENDER
@@ -272,8 +337,22 @@ export default function InventoryPage() {
     <div style={{ minHeight: "100vh" }}>
       {/* ── Topbar ── */}
       <div style={{ ...styles.topbar, padding: isTablet ? "0 16px" : "0 28px" }}>
-        <h1 style={styles.topbarTitle}>Inventory</h1>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+        <h1 style={styles.topbarTitle}>Inventory & Menu</h1>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <button
+            onClick={openCreateModal}
+            style={styles.addBtn}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = "translateY(-1px)";
+              e.currentTarget.style.boxShadow = "0 4px 20px rgba(201,160,80,0.4)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = "translateY(0)";
+              e.currentTarget.style.boxShadow = "0 2px 12px rgba(201,160,80,0.3)";
+            }}
+          >
+            <span style={{ fontSize: 16, lineHeight: 1 }}>+</span> Add Item
+          </button>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <div style={styles.liveDot} />
             <span style={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}>Live</span>
@@ -295,7 +374,7 @@ export default function InventoryPage() {
         <div className="dash-stats-row" style={styles.statsRow}>
           <StatCard
             label="Total Items"
-            value={TOTAL_ITEMS}
+            value={totalItems}
             sub={`Across ${categories.length} categories`}
             color="rgba(255,255,255,0.55)"
           />
@@ -303,9 +382,9 @@ export default function InventoryPage() {
             label="Available"
             value={stats.available}
             sub={
-              stats.available === TOTAL_ITEMS
+              stats.available === totalItems
                 ? "All items in stock"
-                : `${Math.round((stats.available / TOTAL_ITEMS) * 100)}% availability`
+                : `${totalItems > 0 ? Math.round((stats.available / totalItems) * 100) : 0}% availability`
             }
             color="#5FBF7A"
           />
@@ -332,7 +411,7 @@ export default function InventoryPage() {
               <CatTab
                 key={cat.key}
                 label={cat.label}
-                count={catCounts[cat.key]}
+                count={catCounts[cat.key] ?? 0}
                 active={activeCategory === cat.key}
                 onClick={() => setActiveCategory(cat.key)}
                 isTablet={isTablet}
@@ -368,7 +447,7 @@ export default function InventoryPage() {
         <div className="dash-split-layout" style={{ ...styles.mainGrid, gridTemplateColumns: isTablet ? "1fr" : "1fr 340px" }}>
           {/* Items panel */}
           <div style={styles.itemsPanel}>
-            {loading ? (
+            {(loading || menuLoading) ? (
               <div style={styles.emptyState}>
                 <span style={{ fontSize: 24, opacity: 0.3 }}>⏳</span>
                 Loading inventory…
@@ -392,14 +471,11 @@ export default function InventoryPage() {
                 </div>
                 {filteredItems.map((item) => (
                   <ItemCard
-                    key={`${item.categoryKey}-${item.name}`}
-                    name={item.name}
-                    desc={item.desc}
-                    price={item.price}
-                    tags={item.tags as string[]}
-                    categoryKey={item.categoryKey}
+                    key={item.id}
+                    item={item}
                     status={statuses[item.name] ?? "available"}
                     onSetStatus={handleSetStatus}
+                    onEdit={() => openEditModal(item)}
                     isTablet={isTablet}
                   />
                 ))}
@@ -458,7 +534,7 @@ export default function InventoryPage() {
               ) : (
                 <>
                   {summaryItems.items86.map((item) => (
-                    <div key={item.name} style={styles.summaryItem}>
+                    <div key={item.id} style={styles.summaryItem}>
                       <span style={{ color: "rgba(255,255,255,0.35)" }}>{item.name}</span>
                       <span style={{ fontWeight: 600, fontFamily: "monospace", color: "#EF4444" }}>
                         Out
@@ -466,7 +542,7 @@ export default function InventoryPage() {
                     </div>
                   ))}
                   {summaryItems.itemsLow.map((item) => (
-                    <div key={item.name} style={styles.summaryItem}>
+                    <div key={item.id} style={styles.summaryItem}>
                       <span style={{ color: "rgba(255,255,255,0.35)" }}>{item.name}</span>
                       <span style={{ fontWeight: 600, fontFamily: "monospace", color: "#E8C468" }}>
                         Low
@@ -530,6 +606,14 @@ export default function InventoryPage() {
           </div>
         </div>
       )}
+
+      {/* ── Edit/Create Modal ── */}
+      <EditItemModal
+        open={editModalOpen}
+        onClose={() => setEditModalOpen(false)}
+        onSaved={handleModalSaved}
+        item={editingItem}
+      />
 
       {/* ── Toast ── */}
       <div
@@ -651,22 +735,16 @@ function CatTab({
 }
 
 function ItemCard({
-  name,
-  desc,
-  price,
-  tags,
-  categoryKey,
+  item,
   status,
   onSetStatus,
+  onEdit,
   isTablet,
 }: {
-  name: string;
-  desc: string;
-  price: number;
-  tags: string[];
-  categoryKey: string;
+  item: MenuItemDoc;
   status: ItemStatus;
   onSetStatus: (name: string, categoryKey: string, status: ItemStatus) => void;
+  onEdit: () => void;
   isTablet?: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
@@ -703,7 +781,7 @@ function ItemCard({
             marginBottom: 2,
           }}
         >
-          {name}
+          {item.name}
         </div>
         <div
           style={{
@@ -714,11 +792,11 @@ function ItemCard({
             textOverflow: "ellipsis",
           }}
         >
-          {desc}
+          {item.desc}
         </div>
-        {tags.filter((t) => TAG_MAP[t]).length > 0 && (
-          <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
-            {tags
+        {item.tags.filter((t) => TAG_MAP[t]).length > 0 && (
+          <div style={{ display: "flex", gap: 4, marginTop: 4, flexWrap: "wrap" }}>
+            {item.tags
               .filter((t) => TAG_MAP[t])
               .map((t) => (
                 <span
@@ -753,7 +831,7 @@ function ItemCard({
           marginRight: 14,
         }}
       >
-        ${price}
+        ${item.price}
       </div>
 
       {/* Status toggle */}
@@ -772,11 +850,46 @@ function ItemCard({
             label={s === "available" ? "In" : s === "low" ? "Low" : "Out"}
             active={status === s}
             variant={s}
-            onClick={() => onSetStatus(name, categoryKey, s)}
+            onClick={() => onSetStatus(item.name, item.categoryKey, s)}
             isTablet={isTablet}
           />
         ))}
       </div>
+
+      {/* Edit button */}
+      <button
+        onClick={onEdit}
+        title="Edit item"
+        style={{
+          width: 32,
+          height: 32,
+          borderRadius: 8,
+          background: "transparent",
+          border: "1px solid transparent",
+          color: "rgba(255,255,255,0.15)",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          transition: "all 0.15s",
+          fontSize: 14,
+          flexShrink: 0,
+          opacity: hovered ? 1 : 0,
+          fontFamily: "var(--font-body)",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = "rgba(201,160,80,0.1)";
+          e.currentTarget.style.color = "#C9A050";
+          e.currentTarget.style.borderColor = "rgba(201,160,80,0.2)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = "transparent";
+          e.currentTarget.style.color = "rgba(255,255,255,0.15)";
+          e.currentTarget.style.borderColor = "transparent";
+        }}
+      >
+        ✎
+      </button>
     </div>
   );
 }
@@ -859,6 +972,22 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 20,
     fontWeight: 700,
     margin: 0,
+  },
+  addBtn: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "8px 18px",
+    borderRadius: 10,
+    border: "none",
+    background: "linear-gradient(135deg, #C9A050, #D4AF61)",
+    color: "#1a1a1e",
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: "pointer",
+    fontFamily: "var(--font-body)",
+    transition: "all 0.2s",
+    boxShadow: "0 2px 12px rgba(201,160,80,0.3)",
   },
   liveDot: {
     width: 7,

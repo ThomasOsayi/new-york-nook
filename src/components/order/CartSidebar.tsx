@@ -15,8 +15,6 @@ const PACKAGING_FEE = 2;
 
 /* ═══════════════════════════════════════════
    Extracted Sub-components
-   (defined OUTSIDE CartSidebar to prevent
-    remounting on parent re-render)
    ═══════════════════════════════════════════ */
 
 /* ── Pickup Time Selector ── */
@@ -73,8 +71,40 @@ function CartItemRow({
   item: CartItem;
   updateQty: (name: string, categoryKey: string, qty: number) => void;
   removeItem: (name: string, categoryKey: string) => void;
-  variant?: "sheet" | "desktop";
+  variant?: "sheet" | "desktop" | "modal";
 }) {
+  if (variant === "modal") {
+    return (
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "72px 1fr auto",
+          gap: 18,
+          alignItems: "center",
+          padding: "18px 0",
+          borderBottom: "1px solid rgba(255,255,255,0.04)",
+        }}
+      >
+        <div style={{ width: 72, height: 72, borderRadius: 14, overflow: "hidden", border: "1px solid rgba(255,255,255,0.06)", position: "relative" }}>
+          <Image src={item.img} alt={item.name} width={72} height={72} style={{ objectFit: "cover", width: "100%", height: "100%" }} />
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 500, color: "#fff", marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</div>
+          <div style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "rgba(255,255,255,0.25)", fontWeight: 300, marginBottom: 12 }}>{catLabelMap[item.categoryKey] ?? ""}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button onClick={() => { if (item.qty <= 1) removeItem(item.name, item.categoryKey); else updateQty(item.name, item.categoryKey, item.qty - 1); }} style={modalQtyBtnStyle} onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(183,143,82,0.3)"; e.currentTarget.style.color = "#C9A050"; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)"; e.currentTarget.style.color = "rgba(255,255,255,0.45)"; }}>−</button>
+            <span style={{ fontFamily: "var(--font-body)", fontSize: 15, fontWeight: 700, color: "#fff", minWidth: 16, textAlign: "center" }}>{item.qty}</span>
+            <button onClick={() => updateQty(item.name, item.categoryKey, item.qty + 1)} style={modalQtyBtnStyle} onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(183,143,82,0.3)"; e.currentTarget.style.color = "#C9A050"; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)"; e.currentTarget.style.color = "rgba(255,255,255,0.45)"; }}>+</button>
+          </div>
+        </div>
+        <div style={{ textAlign: "right", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+          <div style={{ fontFamily: "var(--font-accent)", fontSize: 22, fontWeight: 600, color: "#C9A050" }}>${(item.price * item.qty).toFixed(0)}</div>
+          <button onClick={() => removeItem(item.name, item.categoryKey)} style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "rgba(255,255,255,0.15)", background: "none", border: "none", cursor: "pointer", transition: "color 0.2s", letterSpacing: 0.5, minHeight: 32, padding: "6px 4px" }} onMouseEnter={(e) => (e.currentTarget.style.color = "#a85454")} onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.15)")}>Remove</button>
+        </div>
+      </div>
+    );
+  }
+
   if (variant === "desktop") {
     return (
       <div
@@ -273,6 +303,7 @@ function TotalsBlock({
   total,
   promo,
   showCheckout = true,
+  onCheckout,
 }: {
   items: CartItem[];
   subtotal: number;
@@ -280,6 +311,7 @@ function TotalsBlock({
   total: number;
   promo: { code: string; type: string; value: number; discount: number } | null;
   showCheckout?: boolean;
+  onCheckout?: () => void;
 }) {
   return (
     <>
@@ -303,6 +335,7 @@ function TotalsBlock({
           {showCheckout && (
             <Link
               href="/order/checkout"
+              onClick={onCheckout}
               className="btn-gold-filled"
               style={{
                 display: "block",
@@ -336,7 +369,7 @@ function TotalsBlock({
 
 /* ══════════════════════════════════════════
    CartSidebar
-   Desktop: sticky sidebar (unchanged)
+   Desktop: sticky sidebar + modal
    Mobile:  fixed bottom bar + slide-up sheet
    ══════════════════════════════════════════ */
 export default function CartSidebar() {
@@ -364,6 +397,10 @@ export default function CartSidebar() {
   const touchDeltaY = useRef(0);
   const isDragging = useRef(false);
 
+  /* ── Desktop modal state ── */
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalClosing, setModalClosing] = useState(false);
+
   const closeSheet = () => {
     setSheetClosing(true);
     setTimeout(() => {
@@ -372,22 +409,37 @@ export default function CartSidebar() {
     }, 300);
   };
 
-  /* Listen for open-cart-sheet event from OrderHeader mobile button */
+  const closeModal = () => {
+    setModalClosing(true);
+    setTimeout(() => {
+      setModalOpen(false);
+      setModalClosing(false);
+    }, 250);
+  };
+
+  /* Listen for open-cart-sheet event from mobile button */
   useEffect(() => {
     const handler = () => setSheetOpen(true);
     window.addEventListener("open-cart-sheet", handler);
     return () => window.removeEventListener("open-cart-sheet", handler);
   }, []);
 
-  /* Lock body scroll when sheet is open */
+  /* Listen for open-cart-modal event from desktop button */
   useEffect(() => {
-    if (sheetOpen) {
+    const handler = () => setModalOpen(true);
+    window.addEventListener("open-cart-modal", handler);
+    return () => window.removeEventListener("open-cart-modal", handler);
+  }, []);
+
+  /* Lock body scroll when sheet or modal is open */
+  useEffect(() => {
+    if (sheetOpen || modalOpen) {
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
     }
     return () => { document.body.style.overflow = ""; };
-  }, [sheetOpen]);
+  }, [sheetOpen, modalOpen]);
 
   /* ── Calculations ── */
   const totalItems = items.reduce((sum: number, i: CartItem) => sum + i.qty, 0);
@@ -402,7 +454,7 @@ export default function CartSidebar() {
     if (success) setPromoInput("");
   };
 
-  /* ── Shared props for extracted components ── */
+  /* ── Shared props ── */
   const promoSectionProps = {
     promo,
     promoInput,
@@ -509,8 +561,141 @@ export default function CartSidebar() {
       </aside>
 
       {/* ════════════════════════════════════════
+          DESKTOP: Cart Modal
+          (triggered by "View Order" button)
+          ════════════════════════════════════════ */}
+      {modalOpen && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="cart-modal-backdrop"
+            onClick={closeModal}
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 200,
+              background: "rgba(0,0,0,0.6)",
+              backdropFilter: "blur(8px)",
+              opacity: modalClosing ? 0 : 1,
+              animation: modalClosing ? "none" : "cartFadeIn 0.2s ease",
+              transition: modalClosing ? "opacity 0.25s ease" : "none",
+            }}
+          />
+
+          {/* Modal */}
+          <div
+            className="cart-modal"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: "fixed",
+              top: "50%",
+              left: "50%",
+              zIndex: 210,
+              width: "min(680px, 92vw)",
+              maxHeight: "85vh",
+              background: "#111009",
+              border: "1px solid rgba(201,160,80,0.12)",
+              borderRadius: 24,
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+              boxShadow: "0 40px 120px rgba(0,0,0,0.6), 0 0 60px rgba(201,160,80,0.04)",
+              transform: modalClosing
+                ? "translate(-50%, -50%) scale(0.96)"
+                : "translate(-50%, -50%) scale(1)",
+              opacity: modalClosing ? 0 : 1,
+              animation: modalClosing ? "none" : "cartModalIn 0.3s cubic-bezier(0.16,1,0.3,1)",
+              transition: modalClosing ? "all 0.25s ease" : "none",
+            }}
+          >
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "28px 36px 24px", borderBottom: "1px solid rgba(255,255,255,0.04)", background: "linear-gradient(180deg, rgba(201,160,80,0.03) 0%, transparent 100%)" }}>
+              <div>
+                <h2 style={{ fontFamily: "var(--font-display)", fontSize: 28, fontWeight: 500, color: "#fff", margin: 0, display: "flex", alignItems: "center", gap: 14 }}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgba(183,143,82,0.5)" strokeWidth="1.5"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4zM3 6h18" /><path d="M16 10a4 4 0 01-8 0" /></svg>
+                  Your Order
+                </h2>
+                <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "rgba(255,255,255,0.25)", margin: "6px 0 0", fontWeight: 300 }}>
+                  {items.length > 0
+                    ? `${totalItems} item${totalItems !== 1 ? "s" : ""} · Review before checkout`
+                    : "Your order is empty"}
+                </p>
+              </div>
+              <button
+                onClick={closeModal}
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 12,
+                  border: "1px solid rgba(255,255,255,0.06)",
+                  background: "rgba(255,255,255,0.03)",
+                  color: "rgba(255,255,255,0.4)",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 18,
+                  fontFamily: "var(--font-body)",
+                  transition: "all 0.15s",
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.color = "#fff"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.color = "rgba(255,255,255,0.4)"; }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Pickup Time */}
+            <div style={{ padding: "0 36px" }}>
+              <PickupTimeSelector activeTime={activeTime} setActiveTime={setActiveTime} />
+            </div>
+
+            {/* Scrollable items */}
+            <div style={{ flex: 1, overflowY: "auto", padding: "0 36px", scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.06) transparent" }}>
+              {items.length === 0 ? (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px 20px", textAlign: "center" }}>
+                  <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="1" style={{ marginBottom: 20 }}>
+                    <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4zM3 6h18" /><path d="M16 10a4 4 0 01-8 0" />
+                  </svg>
+                  <p style={{ fontFamily: "var(--font-body)", fontSize: 15, color: "rgba(255,255,255,0.15)", fontWeight: 300, lineHeight: 1.7 }}>
+                    Your order is empty.<br />Browse the menu and add items.
+                  </p>
+                </div>
+              ) : (
+                items.map((item: CartItem) => (
+                  <CartItemRow key={`modal-${item.categoryKey}-${item.name}`} item={item} updateQty={updateQty} removeItem={removeItem} variant="modal" />
+                ))
+              )}
+
+              {/* Promo + Instructions inside scroll area */}
+              {items.length > 0 && <PromoSection {...promoSectionProps} />}
+              {items.length > 0 && (
+                <div style={{ padding: "4px 0 14px" }}>
+                  <button onClick={() => setShowInstructions(!showInstructions)} style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "rgba(255,255,255,0.2)", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontWeight: 500, padding: 0, minHeight: 36 }}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">{showInstructions ? <path d="M5 12h14" /> : <path d="M12 5v14m-7-7h14" />}</svg>
+                    {showInstructions ? "Hide special instructions" : "Add special instructions"}
+                  </button>
+                  {showInstructions && (
+                    <textarea placeholder="Allergies, dietary needs, special requests..." style={{ width: "100%", marginTop: 10, padding: 12, background: "rgb(var(--bg-primary))", border: "1px solid rgba(255,255,255,0.05)", borderRadius: 10, fontFamily: "var(--font-body)", fontSize: 16, color: "#fff", resize: "none", height: 60, outline: "none", WebkitAppearance: "none" }} />
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Footer with totals + checkout */}
+            <div style={{ padding: "24px 36px 28px", borderTop: "1px solid rgba(255,255,255,0.04)", background: "linear-gradient(180deg, transparent 0%, rgba(201,160,80,0.02) 100%)" }}>
+              <TotalsBlock {...totalsProps} onCheckout={closeModal} />
+              <div style={{ textAlign: "center", fontFamily: "var(--font-body)", fontSize: 10, color: "rgba(255,255,255,0.15)", marginTop: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, letterSpacing: 0.5 }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>
+                Secure checkout · SSL encrypted
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ════════════════════════════════════════
           MOBILE: Fixed Bottom Cart Bar
-          (visible only ≤900px)
           ════════════════════════════════════════ */}
       <div
         className="cart-mobile-bar"
@@ -525,7 +710,7 @@ export default function CartSidebar() {
           background: "rgba(8,6,3,0.96)",
           backdropFilter: "blur(24px) saturate(1.5)",
           borderTop: "1px solid rgba(201,160,80,0.15)",
-          display: "none", /* shown via media query */
+          display: "none",
           transition: "transform 0.3s ease",
           transform: totalItems > 0 ? "translateY(0)" : "translateY(100%)",
         }}
@@ -595,9 +780,7 @@ export default function CartSidebar() {
               touchStartY.current = e.touches[0].clientY;
               touchDeltaY.current = 0;
               isDragging.current = false;
-              if (sheetRef.current) {
-                sheetRef.current.style.transition = "none";
-              }
+              if (sheetRef.current) sheetRef.current.style.transition = "none";
             }}
             onTouchMove={(e) => {
               const delta = e.touches[0].clientY - touchStartY.current;
@@ -605,48 +788,27 @@ export default function CartSidebar() {
               const clampedDelta = Math.max(0, delta);
               if (clampedDelta > 10) isDragging.current = true;
               if (sheetRef.current && clampedDelta > 0) {
-                const translated = clampedDelta < 40
-                  ? clampedDelta
-                  : 40 + (clampedDelta - 40) * 0.4;
+                const translated = clampedDelta < 40 ? clampedDelta : 40 + (clampedDelta - 40) * 0.4;
                 sheetRef.current.style.transform = `translateY(${translated}px)`;
               }
               if (backdropRef.current && clampedDelta > 0) {
-                const opacity = Math.max(0, 1 - clampedDelta / 400);
-                backdropRef.current.style.opacity = String(opacity);
+                backdropRef.current.style.opacity = String(Math.max(0, 1 - clampedDelta / 400));
               }
             }}
             onTouchEnd={() => {
-              if (sheetRef.current) {
-                sheetRef.current.style.transition = "transform 0.3s cubic-bezier(0.22,1,0.36,1)";
-              }
-              if (backdropRef.current) {
-                backdropRef.current.style.transition = "opacity 0.3s ease";
-              }
+              if (sheetRef.current) sheetRef.current.style.transition = "transform 0.3s cubic-bezier(0.22,1,0.36,1)";
+              if (backdropRef.current) backdropRef.current.style.transition = "opacity 0.3s ease";
               if (touchDeltaY.current > 100) {
-                if (sheetRef.current) {
-                  sheetRef.current.style.transform = "translateY(100%)";
-                }
-                if (backdropRef.current) {
-                  backdropRef.current.style.opacity = "0";
-                }
+                if (sheetRef.current) sheetRef.current.style.transform = "translateY(100%)";
+                if (backdropRef.current) backdropRef.current.style.opacity = "0";
                 setTimeout(() => {
                   setSheetOpen(false);
-                  if (sheetRef.current) {
-                    sheetRef.current.style.transform = "";
-                    sheetRef.current.style.transition = "";
-                  }
-                  if (backdropRef.current) {
-                    backdropRef.current.style.opacity = "";
-                    backdropRef.current.style.transition = "";
-                  }
+                  if (sheetRef.current) { sheetRef.current.style.transform = ""; sheetRef.current.style.transition = ""; }
+                  if (backdropRef.current) { backdropRef.current.style.opacity = ""; backdropRef.current.style.transition = ""; }
                 }, 300);
               } else {
-                if (sheetRef.current) {
-                  sheetRef.current.style.transform = "translateY(0)";
-                }
-                if (backdropRef.current) {
-                  backdropRef.current.style.opacity = "1";
-                }
+                if (sheetRef.current) sheetRef.current.style.transform = "translateY(0)";
+                if (backdropRef.current) backdropRef.current.style.opacity = "1";
               }
               touchDeltaY.current = 0;
               isDragging.current = false;
@@ -677,9 +839,7 @@ export default function CartSidebar() {
                 touchStartY.current = e.clientY;
                 touchDeltaY.current = 0;
                 isDragging.current = false;
-                if (sheetRef.current) {
-                  sheetRef.current.style.transition = "none";
-                }
+                if (sheetRef.current) sheetRef.current.style.transition = "none";
 
                 const onMouseMove = (ev: MouseEvent) => {
                   const delta = ev.clientY - touchStartY.current;
@@ -687,26 +847,19 @@ export default function CartSidebar() {
                   const clampedDelta = Math.max(0, delta);
                   if (clampedDelta > 10) isDragging.current = true;
                   if (sheetRef.current && clampedDelta > 0) {
-                    const translated = clampedDelta < 40
-                      ? clampedDelta
-                      : 40 + (clampedDelta - 40) * 0.4;
+                    const translated = clampedDelta < 40 ? clampedDelta : 40 + (clampedDelta - 40) * 0.4;
                     sheetRef.current.style.transform = `translateY(${translated}px)`;
                   }
                   if (backdropRef.current && clampedDelta > 0) {
-                    const opacity = Math.max(0, 1 - clampedDelta / 400);
-                    backdropRef.current.style.opacity = String(opacity);
+                    backdropRef.current.style.opacity = String(Math.max(0, 1 - clampedDelta / 400));
                   }
                 };
 
                 const onMouseUp = () => {
                   document.removeEventListener("mousemove", onMouseMove);
                   document.removeEventListener("mouseup", onMouseUp);
-                  if (sheetRef.current) {
-                    sheetRef.current.style.transition = "transform 0.3s cubic-bezier(0.22,1,0.36,1)";
-                  }
-                  if (backdropRef.current) {
-                    backdropRef.current.style.transition = "opacity 0.3s ease";
-                  }
+                  if (sheetRef.current) sheetRef.current.style.transition = "transform 0.3s cubic-bezier(0.22,1,0.36,1)";
+                  if (backdropRef.current) backdropRef.current.style.transition = "opacity 0.3s ease";
                   if (touchDeltaY.current > 100) {
                     if (sheetRef.current) sheetRef.current.style.transform = "translateY(100%)";
                     if (backdropRef.current) backdropRef.current.style.opacity = "0";
@@ -727,12 +880,10 @@ export default function CartSidebar() {
                 document.addEventListener("mouseup", onMouseUp);
               }}
             >
-              {/* Handle pill */}
               <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 0" }}>
                 <div className="cart-drag-pill" style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.15)", transition: "all 0.2s ease" }} />
               </div>
 
-              {/* Header */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid rgba(255,255,255,0.04)", flexShrink: 0 }}>
                 <div>
                   <div style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 500, color: "#fff" }}>Your Order</div>
@@ -742,24 +893,17 @@ export default function CartSidebar() {
                   onClick={() => closeSheet()}
                   onMouseDown={(e) => e.stopPropagation()}
                   style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 10,
+                    width: 36, height: 36, borderRadius: 10,
                     border: "1px solid rgba(255,255,255,0.06)",
-                    background: "transparent",
-                    color: "rgba(255,255,255,0.4)",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 18,
-                    fontFamily: "var(--font-body)",
+                    background: "transparent", color: "rgba(255,255,255,0.4)",
+                    cursor: "pointer", display: "flex", alignItems: "center",
+                    justifyContent: "center", fontSize: 18, fontFamily: "var(--font-body)",
                   }}
                 >
                   ✕
                 </button>
               </div>
-            </div>{/* end drag zone */}
+            </div>
 
             {/* Scrollable body */}
             <div style={{ flex: 1, overflowY: "auto", padding: "0 20px", WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}>
@@ -771,7 +915,6 @@ export default function CartSidebar() {
 
               {items.length > 0 && <PromoSection {...promoSectionProps} />}
 
-              {/* Special Instructions */}
               {items.length > 0 && (
                 <div style={{ padding: "8px 0 14px" }}>
                   <button onClick={() => setShowInstructions(!showInstructions)} style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "rgba(255,255,255,0.2)", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontWeight: 500, padding: 0, minHeight: 36 }}>
@@ -784,7 +927,6 @@ export default function CartSidebar() {
                 </div>
               )}
 
-              {/* Totals */}
               <div style={{ padding: "14px 0 8px" }}>
                 <TotalsBlock {...totalsProps} showCheckout={false} />
               </div>
@@ -796,22 +938,11 @@ export default function CartSidebar() {
                 href="/order/checkout"
                 onClick={() => setSheetOpen(false)}
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 8,
-                  width: "100%",
-                  height: 52,
-                  borderRadius: 14,
-                  border: "none",
-                  background: "linear-gradient(135deg, #C9A050, #B8903E)",
-                  color: "#080603",
-                  fontFamily: "var(--font-body)",
-                  fontSize: 13,
-                  fontWeight: 700,
-                  letterSpacing: 1.5,
-                  textTransform: "uppercase",
-                  textDecoration: "none",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                  width: "100%", height: 52, borderRadius: 14, border: "none",
+                  background: "linear-gradient(135deg, #C9A050, #B8903E)", color: "#080603",
+                  fontFamily: "var(--font-body)", fontSize: 13, fontWeight: 700,
+                  letterSpacing: 1.5, textTransform: "uppercase", textDecoration: "none",
                   boxShadow: "0 8px 32px rgba(201,160,80,0.25)",
                 }}
               >
@@ -835,6 +966,10 @@ export default function CartSidebar() {
           .cart-mobile-bar {
             display: block !important;
           }
+          .cart-modal-backdrop,
+          .cart-modal {
+            display: none !important;
+          }
         }
         @media (min-width: 901px) {
           .cart-mobile-bar {
@@ -852,6 +987,10 @@ export default function CartSidebar() {
         @keyframes cartFadeIn {
           from { opacity: 0; }
           to { opacity: 1; }
+        }
+        @keyframes cartModalIn {
+          from { transform: translate(-50%, -50%) scale(0.94); opacity: 0; }
+          to { transform: translate(-50%, -50%) scale(1); opacity: 1; }
         }
         .cart-sheet > div:nth-child(2)::-webkit-scrollbar { display: none; }
         .cart-sheet-drag-zone:hover .cart-drag-pill {
@@ -876,48 +1015,32 @@ export default function CartSidebar() {
 
 /* ── Style constants ── */
 const sheetQtyBtnStyle: React.CSSProperties = {
-  width: 34,
-  height: 34,
-  border: "none",
-  background: "transparent",
-  color: "rgba(255,255,255,0.5)",
-  cursor: "pointer",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  fontSize: 15,
-  fontWeight: 600,
-  fontFamily: "var(--font-body)",
-  transition: "all 0.15s",
-  minWidth: 34,
-  minHeight: 34,
+  width: 34, height: 34, border: "none", background: "transparent",
+  color: "rgba(255,255,255,0.5)", cursor: "pointer", display: "flex",
+  alignItems: "center", justifyContent: "center", fontSize: 15,
+  fontWeight: 600, fontFamily: "var(--font-body)", transition: "all 0.15s",
+  minWidth: 34, minHeight: 34,
 };
 
 const desktopQtyBtnStyle: React.CSSProperties = {
-  width: 34,
-  height: 34,
-  borderRadius: 6,
-  border: "1px solid rgba(255,255,255,0.06)",
-  background: "transparent",
-  color: "rgba(255,255,255,0.45)",
-  cursor: "pointer",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  fontSize: 13,
-  fontWeight: 600,
-  fontFamily: "var(--font-body)",
-  transition: "all 0.2s",
-  minWidth: 34,
-  minHeight: 34,
+  width: 34, height: 34, borderRadius: 6,
+  border: "1px solid rgba(255,255,255,0.06)", background: "transparent",
+  color: "rgba(255,255,255,0.45)", cursor: "pointer", display: "flex",
+  alignItems: "center", justifyContent: "center", fontSize: 13,
+  fontWeight: 600, fontFamily: "var(--font-body)", transition: "all 0.2s",
+  minWidth: 34, minHeight: 34,
+};
+
+const modalQtyBtnStyle: React.CSSProperties = {
+  width: 38, height: 38, borderRadius: 8,
+  border: "1px solid rgba(255,255,255,0.06)", background: "transparent",
+  color: "rgba(255,255,255,0.45)", cursor: "pointer", display: "flex",
+  alignItems: "center", justifyContent: "center", fontSize: 15,
+  fontWeight: 600, fontFamily: "var(--font-body)", transition: "all 0.2s",
+  minWidth: 38, minHeight: 38,
 };
 
 const totalRowStyle: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  marginBottom: 7,
-  fontFamily: "var(--font-body)",
-  fontSize: 13,
-  color: "rgba(255,255,255,0.4)",
-  fontWeight: 300,
+  display: "flex", justifyContent: "space-between", marginBottom: 7,
+  fontFamily: "var(--font-body)", fontSize: 13, color: "rgba(255,255,255,0.4)", fontWeight: 300,
 };

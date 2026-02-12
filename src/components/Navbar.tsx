@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useScrollY } from "@/hooks/useScrollY";
 
 const NAV_LINKS = ["Home", "Menu", "Gallery", "Reserve", "Order", "Catering", "Contact"] as const;
@@ -12,6 +12,7 @@ interface NavbarProps {
 
 export default function Navbar({ onNav }: NavbarProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const scrollY = useScrollY();
   const scrolled = scrollY > 60;
   const [open, setOpen] = useState(false);
@@ -37,7 +38,11 @@ export default function Navbar({ onNav }: NavbarProps) {
   const handleNav = useCallback(
     (label: string) => {
       if (label === "Order") {
-        router.push("/order");
+        if (pathname === "/") {
+          onNav("Order");
+        } else {
+          router.push("/#order-takeout");
+        }
       } else if (label === "Catering") {
         router.push("/catering");
       } else if (label === "Reserve") {
@@ -47,7 +52,7 @@ export default function Navbar({ onNav }: NavbarProps) {
       }
       setOpen(false);
     },
-    [onNav, router]
+    [onNav, router, pathname]
   );
 
   return (
